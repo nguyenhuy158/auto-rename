@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cron Run Logs</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #f4f4f4; }
+        .error { color: red; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-10">
+<nav class="mb-8 bg-white dark:bg-gray-800 p-2 sm:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <button id="nav-toggle" class="sm:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                <span class="material-icons text-2xl text-blue-700 dark:text-blue-300">menu</span>
+            </button>
+            <span class="font-bold text-blue-700 dark:text-blue-300 text-lg sm:hidden">Menu</span>
+        </div>
+        <button id="dark-toggle" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center gap-2">
+            <span class="material-icons" id="dark-icon">dark_mode</span>
+            <span id="dark-label">Dark</span>
+        </button>
+    </div>
+    <div id="nav-links" class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mt-2 sm:mt-0">
+        <a href="/" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">home</span>
+            Home
+        </a>
+        <a href="/records" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">list_alt</span>
+            Records
+        </a>
+        <a href="/logs" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">history</span>
+            Logs
+        </a>
+    </div>
+</nav>
+<div class="max-w-6xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">⏰ Cron Run Logs</h1>
+    <div class="overflow-x-auto">
+        <table class="min-w-[400px] w-full border-collapse my-5 text-xs sm:text-base" id="logs-table">
+            <thead>
+                <tr class="bg-gray-50">
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Timestamp</th>
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Processed</th>
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Skipped</th>
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Error</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+    // Hamburger menu logic
+    const navToggle = document.getElementById('nav-toggle');
+    const navLinks = document.getElementById('nav-links');
+    navToggle.addEventListener('click', () => {
+        navLinks.classList.toggle('hidden');
+    });
+    function handleResize() {
+        if (window.innerWidth >= 640) {
+            navLinks.classList.remove('hidden');
+        } else {
+            navLinks.classList.add('hidden');
+        }
+    }
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    // Dark mode logic
+    function setDarkMode(enabled, persist = true) {
+        document.documentElement.classList.toggle('dark', enabled);
+        document.body.classList.toggle('dark:bg-gray-900', enabled);
+        if (persist) localStorage.setItem('darkmode', enabled ? '1' : '0');
+        document.getElementById('dark-label').textContent = enabled ? 'Light' : 'Dark';
+        document.getElementById('dark-icon').textContent = enabled ? 'light_mode' : 'dark_mode';
+    }
+    function getDarkPref() {
+        const stored = localStorage.getItem('darkmode');
+        if (stored !== null) return stored === '1';
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    document.getElementById('dark-toggle').onclick = function() {
+        setDarkMode(!document.documentElement.classList.contains('dark'));
+    };
+    setDarkMode(getDarkPref(), false);
+
+    fetch('/api/cron/logs')
+        .then(response => response.json())
+        .then(logs => {
+            const tbody = document.querySelector('#logs-table tbody');
+            logs.reverse().forEach(log => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${
+(() => {
+    const d = new Date(new Date(log.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+    const pad = n => n.toString().padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+})()
+}</td>
+                    <td>${log.processed}</td>
+                    <td>${log.skipped}</td>
+                    <td class="text-red-600 font-semibold">${log.error || ''}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+</script>
+</body>
+</html>

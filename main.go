@@ -83,9 +83,11 @@ func startCronScanner(config Config, db *Database) {
 		if err != nil {
 			log.Printf("[cron] error: %v", err)
 			MarkCronComplete(processed, skipped, err)
+			log.Printf("[cron] run summary: processed=%d skipped=%d error=%v", processed, skipped, err)
 		} else {
 			log.Printf("[cron] scan complete")
 			MarkCronComplete(processed, skipped, nil)
+			log.Printf("[cron] run summary: processed=%d skipped=%d error=nil", processed, skipped)
 		}
 	}
 }

@@ -19,6 +19,14 @@ This project provides a comprehensive file renaming solution with:
 - **Web Dashboard**: Real-time interface to view rename history, search records, and view statistics
 - **Dry Run Mode**: Preview changes without actually renaming files
 
+---
+
+### Styling Instruction
+
+This project uses [Tailwind CSS](https://tailwindcss.com/) for all styling. **Do not use regular CSS files or custom CSS.** All UI components and pages must be styled using Tailwind utility classes only.
+
+---
+
 ### Web Interface
 - 📋 **Dashboard**: Overview with statistics and quick navigation
 - 📊 **Records View**: Detailed table of all rename operations with search functionality

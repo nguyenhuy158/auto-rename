@@ -1,3 +1,11 @@
+/*
+TODO:
+- [ ] Analyze how cron runs are logged
+- [ ] Add HTTP route to view cron logs
+- [ ] Create/update HTML template for log display
+- [ ] Implement logic to fetch and render logs
+- [ ] Test
+*/
 package main
 
 import (
@@ -32,10 +40,12 @@ func (ws *WebServer) Start() error {
 	api.HandleFunc("/records/search", ws.handleSearchRecords).Methods("GET")
 	api.HandleFunc("/stats", ws.handleGetStats).Methods("GET")
 	api.HandleFunc("/cron/status", ws.handleGetCronStatus).Methods("GET")
+	api.HandleFunc("/cron/logs", ws.handleGetCronLogs).Methods("GET")
 
 	// Web interface
 	r.HandleFunc("/", ws.handleHome).Methods("GET")
 	r.HandleFunc("/records", ws.handleRecordsPage).Methods("GET")
+	r.HandleFunc("/logs", ws.handleLogsPage).Methods("GET")
 
 	// Static files
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
@@ -112,8 +122,24 @@ func (ws *WebServer) handleRecordsPage(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
+func (ws *WebServer) handleLogsPage(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile("template/logs.html")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to load template: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(data)
+}
+
 func (ws *WebServer) handleGetCronStatus(w http.ResponseWriter, r *http.Request) {
 	status := GetCronStatus()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
+}
+
+func (ws *WebServer) handleGetCronLogs(w http.ResponseWriter, r *http.Request) {
+	status := GetCronStatus()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status.RunLogs)
 }

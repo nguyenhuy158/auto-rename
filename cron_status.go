@@ -5,25 +5,33 @@ import (
 	"time"
 )
 
-// CronStatus tracks the current status of the cron job
+type CronRunLog struct {
+	Timestamp time.Time `json:"timestamp"`
+	Processed int       `json:"processed"`
+	Skipped   int       `json:"skipped"`
+	Error     string    `json:"error,omitempty"`
+}
+
 type CronStatus struct {
 	mu             sync.RWMutex
-	Enabled        bool      `json:"enabled"`
-	LastRun        time.Time `json:"last_run"`
-	NextRun        time.Time `json:"next_run"`
-	Directory      string    `json:"directory"`
-	Interval       int       `json:"interval_seconds"` // in seconds
-	IsRunning      bool      `json:"is_running"`
-	LastError      string    `json:"last_error,omitempty"`
-	TotalScans     int       `json:"total_scans"`
-	FilesProcessed int       `json:"files_processed"`
-	FilesSkipped   int       `json:"files_skipped"`
+	Enabled        bool         `json:"enabled"`
+	LastRun        time.Time    `json:"last_run"`
+	NextRun        time.Time    `json:"next_run"`
+	Directory      string       `json:"directory"`
+	Interval       int          `json:"interval_seconds"` // in seconds
+	IsRunning      bool         `json:"is_running"`
+	LastError      string       `json:"last_error,omitempty"`
+	TotalScans     int          `json:"total_scans"`
+	FilesProcessed int          `json:"files_processed"`
+	FilesSkipped   int          `json:"files_skipped"`
+	RunLogs        []CronRunLog `json:"run_logs"`
 }
 
 // Global cron status instance
 var globalCronStatus = &CronStatus{
 	Enabled:  false,
 	Interval: 60, // default 60 seconds
+	RunLogs:  make([]CronRunLog, 0),
 }
 
 // GetCronStatus returns a copy of the current cron status
@@ -60,7 +68,6 @@ func MarkCronStart() {
 	})
 }
 
-// MarkCronComplete marks the completion of a cron scan
 func MarkCronComplete(processed, skipped int, err error) {
 	UpdateCronStatus(func(status *CronStatus) {
 		status.IsRunning = false
@@ -71,6 +78,20 @@ func MarkCronComplete(processed, skipped int, err error) {
 			status.LastError = err.Error()
 		} else {
 			status.LastError = ""
+		}
+		// Append to run logs
+		runLog := CronRunLog{
+			Timestamp: time.Now(),
+			Processed: processed,
+			Skipped:   skipped,
+		}
+		if err != nil {
+			runLog.Error = err.Error()
+		}
+		status.RunLogs = append(status.RunLogs, runLog)
+		// Limit log size to last 100 runs
+		if len(status.RunLogs) > 100 {
+			status.RunLogs = status.RunLogs[len(status.RunLogs)-100:]
 		}
 	})
 }

@@ -8,41 +8,69 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-10">
-    <div class="max-w-6xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-        <h1 class="text-3xl font-bold text-gray-800 border-b-4 border-blue-500 pb-3 mb-6">🔄 Auto-Rename Dashboard</h1>
+<body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-10">
+<nav class="mb-8 bg-white dark:bg-gray-800 p-2 sm:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <button id="nav-toggle" class="sm:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                <span class="material-icons text-2xl text-blue-700 dark:text-blue-300">menu</span>
+            </button>
+            <span class="font-bold text-blue-700 dark:text-blue-300 text-lg sm:hidden">Menu</span>
+        </div>
+        <button id="dark-toggle" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center gap-2">
+            <span class="material-icons" id="dark-icon">dark_mode</span>
+            <span id="dark-label">Dark</span>
+        </button>
+    </div>
+    <div id="nav-links" class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mt-2 sm:mt-0">
+        <a href="/" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">home</span>
+            Home
+        </a>
+        <a href="/records" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">list_alt</span>
+            Records
+        </a>
+        <a href="/logs" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">history</span>
+            Logs
+        </a>
+    </div>
+</nav>
+    <div class="max-w-6xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">🔄 Auto-Rename Dashboard</h1>
 
         <div class="bg-blue-50 p-5 rounded-lg mb-6 border-l-4 border-blue-500">
             <strong>Welcome!</strong> This dashboard shows the history of file rename operations performed by the auto-rename tool.
         </div>
 
-        <div class="flex gap-3 my-6">
-            <a href="/records" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+        <div class="flex flex-wrap gap-2 sm:gap-3 my-6">
+            <a href="/records" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
                 <i class="material-icons text-sm">list</i> View All Records
             </a>
-            <a href="/api/records" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+            <a href="/api/records" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
                 <i class="material-icons text-sm">storage</i> API - Records
             </a>
-            <a href="/api/stats" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+            <a href="/api/stats" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
                 <i class="material-icons text-sm">bar_chart</i> API - Statistics
             </a>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 my-8" id="stats">
-            <div class="bg-gray-50 p-5 rounded-lg text-center border-l-4 border-blue-500">
-                <div class="text-4xl font-bold text-blue-500" id="total">-</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 my-8" id="stats">
+            <div class="bg-gray-50 p-3 sm:p-5 rounded-lg text-center border-l-4 border-blue-500">
+                <div class="text-2xl sm:text-4xl font-bold text-blue-500" id="total">-</div>
                 <div class="text-gray-600 mt-2">Total Operations</div>
             </div>
-            <div class="bg-gray-50 p-5 rounded-lg text-center border-l-4 border-blue-500">
-                <div class="text-4xl font-bold text-blue-500" id="successful">-</div>
+            <div class="bg-gray-50 p-3 sm:p-5 rounded-lg text-center border-l-4 border-blue-500">
+                <div class="text-2xl sm:text-4xl font-bold text-blue-500" id="successful">-</div>
                 <div class="text-gray-600 mt-2">Successful</div>
             </div>
-            <div class="bg-gray-50 p-5 rounded-lg text-center border-l-4 border-blue-500">
-                <div class="text-4xl font-bold text-blue-500" id="failed">-</div>
+            <div class="bg-gray-50 p-3 sm:p-5 rounded-lg text-center border-l-4 border-blue-500">
+                <div class="text-2xl sm:text-4xl font-bold text-blue-500" id="failed">-</div>
                 <div class="text-gray-600 mt-2">Failed</div>
             </div>
-            <div class="bg-gray-50 p-5 rounded-lg text-center border-l-4 border-blue-500">
-                <div class="text-4xl font-bold text-blue-500" id="recent">-</div>
+            <div class="bg-gray-50 p-3 sm:p-5 rounded-lg text-center border-l-4 border-blue-500">
+                <div class="text-2xl sm:text-4xl font-bold text-blue-500" id="recent">-</div>
                 <div class="text-gray-600 mt-2">Last 24h</div>
             </div>
         </div>
@@ -58,6 +86,40 @@
     </div>
 
     <script>
+        // Hamburger menu logic
+        const navToggle = document.getElementById('nav-toggle');
+        const navLinks = document.getElementById('nav-links');
+        navToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('hidden');
+        });
+        function handleResize() {
+            if (window.innerWidth >= 640) {
+                navLinks.classList.remove('hidden');
+            } else {
+                navLinks.classList.add('hidden');
+            }
+        }
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        // Dark mode logic
+        function setDarkMode(enabled, persist = true) {
+            document.documentElement.classList.toggle('dark', enabled);
+            document.body.classList.toggle('dark:bg-gray-900', enabled);
+            if (persist) localStorage.setItem('darkmode', enabled ? '1' : '0');
+            document.getElementById('dark-label').textContent = enabled ? 'Light' : 'Dark';
+            document.getElementById('dark-icon').textContent = enabled ? 'light_mode' : 'dark_mode';
+        }
+        function getDarkPref() {
+            const stored = localStorage.getItem('darkmode');
+            if (stored !== null) return stored === '1';
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        document.getElementById('dark-toggle').onclick = function() {
+            setDarkMode(!document.documentElement.classList.contains('dark'));
+        };
+        setDarkMode(getDarkPref(), false);
+
         fetch('/api/stats')
             .then(response => response.json())
             .then(data => {
@@ -74,51 +136,69 @@
                 let html = `
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                            <span class="font-bold text-gray-700">Enabled:</span>
-                            <span class="text-blue-700">${status.enabled ? 'Yes' : 'No'}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Enabled:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${status.enabled ? 'Yes' : 'No'}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Next Run:</span>
-                            <span class="text-blue-700">${status.next_run ? new Date(status.next_run).toLocaleString() : '-'}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Next Run:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${
+    status.next_run
+        ? (() => {
+            const d = new Date(new Date(status.next_run).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+            const pad = n => n.toString().padStart(2, '0');
+            if (d.getFullYear() < 2022) return '-';
+            return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        })()
+        : '-'
+}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Last Run:</span>
-                            <span class="text-blue-700">${status.last_run ? new Date(status.last_run).toLocaleString() : '-'}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Last Run:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${
+    status.last_run
+        ? (() => {
+            const d = new Date(new Date(status.last_run).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+            const pad = n => n.toString().padStart(2, '0');
+            if (d.getFullYear() < 2022) return '-';
+            return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        })()
+        : '-'
+}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Is Running:</span>
-                            <span class="text-blue-700">${status.is_running ? 'Yes' : 'No'}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Is Running:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${status.is_running ? 'Yes' : 'No'}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Directory:</span>
-                            <span class="text-blue-700">${status.directory || '-'}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Directory:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${status.directory || '-'}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Interval (s):</span>
-                            <span class="text-blue-700">${status.interval_seconds || 60}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Interval (s):</span>
+                            <span class="text-blue-700 dark:text-blue-300">${status.interval_seconds || 60}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Total Scans:</span>
-                            <span class="text-blue-700">${status.total_scans || 0}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Total Scans:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${status.total_scans || 0}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Files Processed:</span>
-                            <span class="text-blue-700">${status.files_processed || 0}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Files Processed:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${status.files_processed || 0}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Files Skipped:</span>
-                            <span class="text-blue-700">${status.files_skipped || 0}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Files Skipped:</span>
+                            <span class="text-blue-700 dark:text-blue-300">${status.files_skipped || 0}</span>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-700">Last Error:</span>
-                            <span class="text-red-700">${status.last_error || '-'}</span>
+                            <span class="font-bold text-gray-700 dark:text-gray-200">Last Error:</span>
+                            <span class="text-red-700 dark:text-red-400">${status.last_error || '-'}</span>
                         </div>
                     </div>
                 `;
                 document.getElementById('cron-status').innerHTML = html;
             })
             .catch(error => {
-                document.getElementById('cron-status').innerHTML = '<span class="text-red-700">Error loading cron status</span>';
+                document.getElementById('cron-status').innerHTML = '<span class="text-red-700 dark:text-red-400">Error loading cron status</span>';
                 console.error('Error loading cron status:', error);
             });
         // Show current time with seconds, update every second
@@ -126,7 +206,8 @@
             const now = new Date();
             // Format as YYYY-MM-DD HH:mm:ss
             const pad = n => n.toString().padStart(2, '0');
-            const formatted = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+            const tzNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+            const formatted = `${pad(tzNow.getDate())}/${pad(tzNow.getMonth()+1)}/${tzNow.getFullYear()} ${pad(tzNow.getHours())}:${pad(tzNow.getMinutes())}:${pad(tzNow.getSeconds())}`;
             document.getElementById('current-time').textContent = formatted;
         }
         setInterval(updateCurrentTime, 1000);

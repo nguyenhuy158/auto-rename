@@ -8,15 +8,43 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-10">
-    <div class="max-w-7xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-        <h1 class="text-3xl font-bold text-gray-800 border-b-4 border-blue-500 pb-3 mb-6">📋 File Rename Records</h1>
+<body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-10">
+<nav class="mb-8 bg-white dark:bg-gray-800 p-2 sm:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <button id="nav-toggle" class="sm:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                <span class="material-icons text-2xl text-blue-700 dark:text-blue-300">menu</span>
+            </button>
+            <span class="font-bold text-blue-700 dark:text-blue-300 text-lg sm:hidden">Menu</span>
+        </div>
+        <button id="dark-toggle" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center gap-2">
+            <span class="material-icons" id="dark-icon">dark_mode</span>
+            <span id="dark-label">Dark</span>
+        </button>
+    </div>
+    <div id="nav-links" class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mt-2 sm:mt-0">
+        <a href="/" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">home</span>
+            Home
+        </a>
+        <a href="/records" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">list_alt</span>
+            Records
+        </a>
+        <a href="/logs" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">history</span>
+            Logs
+        </a>
+    </div>
+</nav>
+    <div class="max-w-7xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">📋 File Rename Records</h1>
 
-        <div class="flex gap-3 my-6">
-            <a href="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+        <div class="flex flex-wrap gap-2 sm:gap-3 my-6">
+            <a href="/" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
                 <i class="material-icons text-sm">home</i> Home
             </a>
-            <a href="/api/records" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+            <a href="/api/records" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
                 <i class="material-icons text-sm">storage</i> JSON Data
             </a>
         </div>
@@ -28,7 +56,7 @@
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full border-collapse my-5" id="recordsTable">
+            <table class="min-w-[400px] w-full border-collapse my-5 text-xs sm:text-base" id="recordsTable">
                 <thead>
                     <tr class="bg-gray-50">
                         <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">ID</th>
@@ -48,6 +76,40 @@
     </div>
 
     <script>
+        // Hamburger menu logic
+        const navToggle = document.getElementById('nav-toggle');
+        const navLinks = document.getElementById('nav-links');
+        navToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('hidden');
+        });
+        function handleResize() {
+            if (window.innerWidth >= 640) {
+                navLinks.classList.remove('hidden');
+            } else {
+                navLinks.classList.add('hidden');
+            }
+        }
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        // Dark mode logic
+        function setDarkMode(enabled, persist = true) {
+            document.documentElement.classList.toggle('dark', enabled);
+            document.body.classList.toggle('dark:bg-gray-900', enabled);
+            if (persist) localStorage.setItem('darkmode', enabled ? '1' : '0');
+            document.getElementById('dark-label').textContent = enabled ? 'Light' : 'Dark';
+            document.getElementById('dark-icon').textContent = enabled ? 'light_mode' : 'dark_mode';
+        }
+        function getDarkPref() {
+            const stored = localStorage.getItem('darkmode');
+            if (stored !== null) return stored === '1';
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        document.getElementById('dark-toggle').onclick = function() {
+            setDarkMode(!document.documentElement.classList.contains('dark'));
+        };
+        setDarkMode(getDarkPref(), false);
+
         function loadAllRecords() {
             fetch('/api/records')
                 .then(response => response.json())
@@ -85,18 +147,20 @@
                 const status = record.success ? '<span class="text-green-600 font-bold">✅ Success</span>' : '<span class="text-red-600 font-bold">❌ Failed</span>';
                 const errorMsg = record.error_msg || '';
                 const fileSize = record.file_size ? formatFileSize(record.file_size) : '-';
-                const renamedAt = new Date(record.renamed_at).toLocaleString();
+                const d = new Date(new Date(record.renamed_at).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+                const pad = n => n.toString().padStart(2, '0');
+                const renamedAt = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
                 return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-3 py-3 border-b border-gray-200">${record.id}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 max-w-[200px] truncate" title="${record.original_name}">${record.original_name}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 max-w-[200px] truncate" title="${record.new_name}">${record.new_name}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 max-w-[300px] truncate text-gray-600 text-sm" title="${record.file_path}">${record.file_path}</td>
-                        <td class="px-3 py-3 border-b border-gray-200">${fileSize}</td>
-                        <td class="px-3 py-3 border-b border-gray-200">${status}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 text-sm text-gray-600">${renamedAt}</td>
-                        <td class="px-3 py-3 border-b border-gray-200">${errorMsg}</td>
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${record.id}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate" title="${record.original_name}">${record.original_name}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate" title="${record.new_name}">${record.new_name}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[300px] truncate text-gray-600 dark:text-gray-300 text-sm" title="${record.file_path}">${record.file_path}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${fileSize}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${status}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">${renamedAt}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${errorMsg}</td>
                     </tr>
                 `;
             }).join('');
