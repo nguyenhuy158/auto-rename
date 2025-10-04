@@ -45,13 +45,13 @@
 <div class="max-w-6xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
     <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">⏰ Cron Run Logs</h1>
     <div class="overflow-x-auto">
-        <table class="min-w-[400px] w-full border-collapse my-5 text-xs sm:text-base" id="logs-table">
+        <table class="min-w-[400px] w-full border-collapse my-5 text-xs sm:text-base dark:text-white" id="logs-table">
             <thead>
-                <tr class="bg-gray-50">
-                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Timestamp</th>
-                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Processed</th>
-                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Skipped</th>
-                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Error</th>
+                <tr class="bg-gray-50 dark:bg-gray-700">
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold dark:text-white">Timestamp</th>
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold dark:text-white">Processed</th>
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold dark:text-white">Skipped</th>
+                    <th class="px-3 py-3 text-left border-b border-gray-200 font-bold dark:text-white">Error</th>
                 </tr>
             </thead>
             <tbody>
@@ -100,18 +100,18 @@
             const tbody = document.querySelector('#logs-table tbody');
             logs.reverse().forEach(log => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${
+row.innerHTML = `
+    <td class="text-gray-800 dark:text-gray-100">${
 (() => {
     const d = new Date(new Date(log.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
     const pad = n => n.toString().padStart(2, '0');
     return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 })()
 }</td>
-                    <td>${log.processed}</td>
-                    <td>${log.skipped}</td>
-                    <td class="text-red-600 font-semibold">${log.error || ''}</td>
-                `;
+    <td class="text-gray-800 dark:text-gray-100">${log.processed}</td>
+    <td class="text-gray-800 dark:text-gray-100">${log.skipped}</td>
+    <td class="text-red-600 font-semibold">${log.error || ''}</td>
+`;
                 tbody.appendChild(row);
             });
         });

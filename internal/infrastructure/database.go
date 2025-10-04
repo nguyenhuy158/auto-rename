@@ -59,6 +59,24 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	return err
 }
 
+func (d *Database) GetAllFileRecords() ([]domain.FileRecord, error) {
+	rows, err := d.db.Query("SELECT original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at, id FROM file_records ORDER BY id DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var records []domain.FileRecord
+	for rows.Next() {
+		var r domain.FileRecord
+		err := rows.Scan(&r.OriginalName, &r.NewName, &r.FilePath, &r.FileSize, &r.FileMode, &r.ModTime, &r.Success, &r.ErrorMsg, &r.RenamedAt, &r.Id)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, r)
+	}
+	return records, nil
+}
+
 // Close đóng kết nối DB
 func (d *Database) Close() error {
 	return d.db.Close()

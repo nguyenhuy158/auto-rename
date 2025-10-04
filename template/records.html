@@ -152,16 +152,16 @@
                 const renamedAt = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
                 return `
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${record.id}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate" title="${record.original_name}">${record.original_name}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate" title="${record.new_name}">${record.new_name}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[300px] truncate text-gray-600 dark:text-gray-300 text-sm" title="${record.file_path}">${record.file_path}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${fileSize}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${status}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300">${renamedAt}</td>
-                        <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700">${errorMsg}</td>
-                    </tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${record.id}</td>
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate text-gray-800 dark:text-gray-100" title="${record.original_name}">${record.original_name}</td>
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate text-gray-800 dark:text-gray-100" title="${record.new_name}">${record.new_name}</td>
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[300px] truncate text-gray-800 dark:text-gray-100 text-sm" title="${record.file_path}">${record.file_path}</td>
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${fileSize}</td>
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${status}</td>
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-100">${renamedAt}</td>
+    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${errorMsg}</td>
+</tr>
                 `;
             }).join('');
         }
