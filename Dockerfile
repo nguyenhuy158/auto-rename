@@ -33,9 +33,9 @@ WORKDIR /app/
 # Copy the binary from builder stage
 COPY --from=builder /app/auto-rename .
 
-RUN mkdir -p /app/template /app/static
-COPY --from=builder /app/template /root/template
-COPY --from=builder /app/static /root/static
+RUN mkdir -p /app/template ./static
+COPY --from=builder /app/template ./template
+COPY --from=builder /app/static ./static
 
 # Create directories for files to be renamed and database
 RUN mkdir -p /app/files /app/data
