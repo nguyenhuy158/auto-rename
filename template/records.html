@@ -72,6 +72,11 @@
                 <tbody id="recordsBody">
                 </tbody>
             </table>
+            <div class="flex justify-center items-center gap-4 my-4" id="paginationControls">
+                <button id="prevPage" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Prev</button>
+                <span id="currentPage" class="font-bold text-blue-700 dark:text-blue-300"></span>
+                <button id="nextPage" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Next</button>
+            </div>
         </div>
     </div>
 
@@ -174,8 +179,49 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
+        // Pagination logic
+        let currentPage = 1;
+        const pageSize = 20;
+
+        function updatePaginationControls() {
+            document.getElementById('currentPage').textContent = `Page ${currentPage}`;
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            const totalPages = Math.ceil(totalRecords / pageSize);
+            document.getElementById('nextPage').disabled = currentPage >= totalPages || totalPages === 0;
+        }
+
+        document.getElementById('prevPage').onclick = function() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadAllRecords(currentPage);
+                updatePaginationControls();
+            }
+        };
+        document.getElementById('nextPage').onclick = function() {
+            currentPage++;
+            loadAllRecords(currentPage);
+            updatePaginationControls();
+        };
+
+        let totalRecords = 0;
+
+        function loadAllRecords(page = 1) {
+            fetch(`/api/records?page=${page}&pageSize=${pageSize}`)
+                .then(response => response.json())
+                .then(data => {
+                    totalRecords = data.total || 0;
+                    displayRecords(data.records || []);
+                    updatePaginationControls();
+                })
+                .catch(error => {
+                    console.error('Error loading records:', error);
+                    document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8">Error loading records</td></tr>';
+                });
+        }
+
         // Load records on page load
-        loadAllRecords();
+        loadAllRecords(currentPage);
+        updatePaginationControls();
 
         // Enable search on Enter key
         document.getElementById('searchInput').addEventListener('keypress', function(e) {

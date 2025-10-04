@@ -16,3 +16,14 @@
 - /internal/infrastructure/filesystem.go (file system helpers)
 - /internal/delivery/webserver.go (WebServer)
 - /internal/config/config.go (Config, parseFlags, validateConfig)
+
+---
+
+# TODO: Phân trang cho records
+
+- [ ] Phân tích yêu cầu phân trang cho records
+- [ ] Sửa backend để trả về dữ liệu records theo từng trang (webserver.go, database.go)
+- [ ] Sửa template/records.html để hiển thị nút chuyển trang và dữ liệu từng trang
+- [ ] Xử lý các trường hợp đặc biệt (ví dụ: trang cuối, trang đầu, không có dữ liệu)
+- [ ] Kiểm tra và test tính năng phân trang
+- [ ] Xác nhận kết quả

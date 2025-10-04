@@ -77,6 +77,37 @@ func (d *Database) GetAllFileRecords() ([]domain.FileRecord, error) {
 	return records, nil
 }
 
+func (d *Database) GetFileRecordsPage(page, pageSize int) ([]domain.FileRecord, error) {
+	offset := (page - 1) * pageSize
+	rows, err := d.db.Query(
+		"SELECT original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at, id FROM file_records ORDER BY id DESC LIMIT ? OFFSET ?",
+		pageSize, offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var records []domain.FileRecord
+	for rows.Next() {
+		var r domain.FileRecord
+		err := rows.Scan(&r.OriginalName, &r.NewName, &r.FilePath, &r.FileSize, &r.FileMode, &r.ModTime, &r.Success, &r.ErrorMsg, &r.RenamedAt, &r.Id)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, r)
+	}
+	return records, nil
+}
+
+func (d *Database) CountFileRecords() (int, error) {
+	row := d.db.QueryRow("SELECT COUNT(*) FROM file_records")
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // Close đóng kết nối DB
 func (d *Database) Close() error {
 	return d.db.Close()

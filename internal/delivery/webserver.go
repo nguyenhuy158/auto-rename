@@ -2,12 +2,12 @@
 package delivery
 
 import (
+	"auto-rename/internal/infrastructure"
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strconv"
 	"time"
-
-	"auto-rename/internal/infrastructure"
 )
 
 type WebServer struct {
@@ -60,12 +60,34 @@ func (ws *WebServer) handleRecord(w http.ResponseWriter, r *http.Request) {
 
 func (ws *WebServer) handleAPIRecords(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	records, err := ws.db.GetAllFileRecords()
+	page := 1
+	pageSize := 20
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if ps := r.URL.Query().Get("pageSize"); ps != "" {
+		if v, err := strconv.Atoi(ps); err == nil && v > 0 {
+			pageSize = v
+		}
+	}
+	records, err := ws.db.GetFileRecordsPage(page, pageSize)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(records)
+	total, err := ws.db.CountFileRecords()
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"records":  records,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+	})
 }
 
 func (ws *WebServer) handleAPIStats(w http.ResponseWriter, r *http.Request) {
