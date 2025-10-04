@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  auto-rename:
+    build: .
+    container_name: auto-rename
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount your local directory for files to be renamed
+      # Change /path/to/your/files to the actual path on your host
+      - /path/to/your/files:/app/files
+      # Mount directory for persistent database storage
+      - ./data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/renames.db
+    # Default: Start web server only (access at http://localhost:8080)
+    command: ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
+    
+    # Alternative commands:
+    # For renaming files and then starting web server:
+    # command: ["-dir=/app/files", "-db=/app/data/renames.db", "-web-port=8080"]
+    # For dry-run mode with web server:
+    # command: ["-dir=/app/files", "-dry-run", "-db=/app/data/renames.db", "-web-port=8080"]
+    # For renaming files only (no web server):
+    # command: ["-dir=/app/files", "-db=/app/data/renames.db"]
