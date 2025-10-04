@@ -1,175 +1,163 @@
 # GitHub Copilot Instructions - Auto-Rename Project
 
 ## Project Overview
-This is a Go application that renames files to UUID-based names with comprehensive database logging and web interface monitoring. The project uses Docker for deployment and includes both command-line and web interfaces.
+A Go CLI tool that renames files to UUID-based names while preserving extensions, with SQLite logging and an embedded web interface for monitoring operations. Single binary with three operational modes: rename-only, web-only, or combined.
 
 ## Architecture & Stack
-- **Language**: Go 1.21+
-- **Database**: SQLite3 with go-sqlite3 driver
-- **Web Framework**: Gorilla Mux router
-- **Frontend**: Vanilla HTML/CSS/JavaScript (responsive design)
-- **Container**: Docker with multi-stage builds
-- **Dependencies**: 
+- **Language**: Go 1.21+ (single-package design)
+- **Database**: SQLite3 with CGO-enabled build
+- **Web**: Gorilla Mux with embedded HTML templates
+- **Dependencies**:
   - `github.com/google/uuid` for UUID generation
-  - `github.com/gorilla/mux` for web routing
-  - `github.com/mattn/go-sqlite3` for database operations
+  - `github.com/gorilla/mux` for HTTP routing
+  - `github.com/mattn/go-sqlite3` for database (requires CGO)
 
 ## Core Components
 
-### 1. Database Operations (`database.go`)
+### 1. Main Application (`main.go`)
+- **Config struct**: Centralized configuration from CLI flags
+- **Three operational modes**:
+  - Web-only: `./auto-rename -web-only -db=./renames.db`
+  - Rename + Web: `./auto-rename -dir=/files -web-port=8080`
+  - Dry-run: `./auto-rename -dir=/files -dry-run`
+- **UUID generation**: `generateUUIDName()` preserves file extensions
+- **File operations**: Metadata capture before renaming with error tracking
+
+### 2. Database Layer (`database.go`)
 - **FileRecord struct**: Complete file metadata with rename tracking
-- **Database struct**: SQLite connection and operations
-- **Key functions**:
-  - `NewDatabase()`: Initialize DB with schema creation
-  - `InsertFileRecord()`: Log rename operations
-  - `GetAllRecords()`: Retrieve all records with pagination support
+- **Auto-created indexes**: `original_name`, `new_name`, `renamed_at`
+- **Key operations**:
+  - `NewDatabase()`: Auto-creates schema and indexes
+  - `InsertFileRecord()`: Logs both successful and failed operations
   - `GetRecordsByOriginalName()`: Search functionality
   - `GetStats()`: Dashboard statistics
 
-### 2. Web Interface (`webserver.go`)
-- **RESTful API**: JSON endpoints for data access
-- **Dashboard**: Statistics overview with real-time updates
-- **Records View**: Searchable table with file details
-- **Responsive Design**: Mobile-friendly interface
-- **API Endpoints**:
+### 3. Web Interface (`webserver.go`)
+- **Embedded HTML templates**: No external static files required
+- **JSON API endpoints**:
   - `GET /api/records` - All records
-  - `GET /api/records/search?q=query` - Search records
-  - `GET /api/stats` - Statistics data
+  - `GET /api/records/search?q=query` - Search by original filename
+  - `GET /api/stats` - Statistics for dashboard
+- **Responsive CSS**: Inline styles with mobile-first approach
 
-### 3. Main Application (`main.go`)
-- **Config struct**: All configuration options
-- **Command-line flags**: Flexible operation modes
-- **File operations**: UUID renaming with metadata capture
-- **Integration**: Database logging + web server coordination
+## Key Development Workflows
 
-## Docker Configuration
+### Building & Testing
+```bash
+# Build with CGO for SQLite
+go build -o auto-rename .
 
-### Multi-stage Dockerfile
+# Run tests (uses temporary databases and directories)
+go test -v
+
+# Test specific functionality
+go test -run TestDatabase -v
+go test -run TestGenerateUUIDName -v
+```
+
+### Development Server
+```bash
+# Quick development with sample data
+go run *.go -dir=./test-files -web-port=8080 -dry-run
+```
+
+### Docker Development
+```bash
+# Build and test container
+docker build -t auto-rename .
+docker run -p 8080:8080 -v $(pwd)/data:/app/data auto-rename
+
+# Using compose for full setup
+docker-compose up --build
+```
+
+## Project-Specific Patterns
+
+### Single-Package Architecture
+- All Go files in root package `main` - no subdirectories
+- Shared types (`Config`, `FileRecord`, `Database`, `WebServer`) across files
+- Clean separation: `main.go` (CLI), `database.go` (persistence), `webserver.go` (HTTP)
+
+### Database Operations
+- **Always use parameterized queries**: `db.Exec(query, args...)` prevents SQL injection
+- **Error wrapping pattern**: `fmt.Errorf("context: %w", err)` for error chains
+- **Automatic schema creation**: Database tables and indexes created on first run
+- **Comprehensive logging**: Both successful and failed operations recorded with full metadata
+
+### CLI Flag Patterns
+```go
+type Config struct {
+    Dir     string  // Required unless WebOnly
+    DryRun  bool    // Preview mode
+    WebPort string  // Optional web interface
+    WebOnly bool    // Database viewer mode
+    DbPath  string  // SQLite file location
+}
+```
+
+### Web Server Architecture
+- **Embedded templates**: HTML directly in Go strings (no external files)
+- **API-first design**: All data via JSON endpoints, HTML consumes same APIs
+- **Error handling**: Consistent JSON error responses with HTTP status codes
+- **No static file server**: All CSS/JS inline for single-binary deployment
+
+### Testing Conventions
+- **Temporary resources**: Use `defer os.Remove()` for test database cleanup
+- **Isolation**: Each test creates its own database file
+- **Real implementations**: Tests use actual SQLite, not mocks
+- **UUID validation**: Parse generated UUIDs to verify format correctness
+
+## Critical Requirements
+
+### CGO Dependency
+- **SQLite requires CGO**: Must build with `CGO_ENABLED=1`
+- **Development**: Install gcc and sqlite-dev for local builds
+- **Docker builds**: Use `golang:alpine` base with build tools
+- **Cross-compilation**: CGO complicates cross-platform builds
+
+### Docker Patterns
 ```dockerfile
-# Build stage with CGO for SQLite
+# Multi-stage pattern for CGO builds
 FROM golang:1.21-alpine AS builder
 RUN apk add --no-cache gcc musl-dev sqlite-dev
-# ... build with CGO_ENABLED=1
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo
 
-# Runtime stage
 FROM alpine:latest
-RUN apk --no-cache add sqlite
-# ... runtime setup
+RUN apk --no-cache add sqlite  # Runtime SQLite needed
 ```
 
-### Docker Compose
-- **Web Interface**: Port 8080 exposed
-- **Volume Mounts**: 
-  - `/path/to/files:/app/files` (input files)
-  - `./data:/app/data` (persistent database)
-- **Flexible Commands**: Web-only, rename+web, dry-run modes
+### Operational Modes
+1. **Web-only**: `./auto-rename -web-only -db=./renames.db` (view existing data)
+2. **Rename + Web**: `./auto-rename -dir=/files -web-port=8080` (rename then serve)
+3. **Rename-only**: `./auto-rename -dir=/files -db=./renames.db` (batch operation)
+4. **Dry-run**: `./auto-rename -dir=/files -dry-run` (preview changes)
 
-## Usage Patterns
+## Common Development Patterns
 
-### Command Line Modes
-1. **Web-only**: `./auto-rename -web-only -db=./renames.db`
-2. **Rename + Web**: `./auto-rename -dir=/files -web-port=8080`
-3. **Dry Run**: `./auto-rename -dir=/files -dry-run`
-
-### Database Schema
-```sql
-CREATE TABLE file_renames (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    original_name TEXT NOT NULL,
-    new_name TEXT NOT NULL,
-    file_path TEXT NOT NULL,
-    file_size INTEGER,
-    file_mode TEXT,
-    mod_time DATETIME,
-    renamed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    success BOOLEAN DEFAULT TRUE,
-    error_msg TEXT
-);
+### File Operations
+```go
+// Capture metadata before operations
+info, err := os.Stat(oldPath)
+record := FileRecord{
+    OriginalName: filename,
+    NewName:      generateUUIDName(filename),
+    FilePath:     dir,
+    FileSize:     info.Size(),
+    FileMode:     info.Mode().String(),
+    ModTime:      info.ModTime(),
+    RenamedAt:    time.Now(),
+    Success:      false,  // Update after operation
+}
 ```
 
-## Development Guidelines
+### Error Handling Strategy
+- **Wrap all errors**: `fmt.Errorf("operation failed: %w", err)`
+- **Record failures**: Log unsuccessful operations to database
+- **Continue on errors**: Don't stop batch operations for single failures
+- **Detailed context**: Include file paths and operation details
 
-### Code Style & Patterns
-- **Error Handling**: Always wrap errors with context
-- **Logging**: Use structured logging with operation details
-- **Testing**: Unit tests for database operations and file handling
-- **Validation**: Input validation for all user-provided data
-
-### Database Best Practices
-- **Transactions**: Use for multi-operation consistency
-- **Indexing**: Indexes on searchable fields (original_name, renamed_at)
-- **Error Recording**: Log both successful and failed operations
-- **Metadata Capture**: Store complete file information before renaming
-
-### Web Interface Standards
-- **RESTful Design**: Consistent API patterns
-- **JSON Responses**: Structured error messages and data formats
-- **Progressive Enhancement**: Works without JavaScript for basic functionality
-- **Responsive Design**: Mobile-first CSS approach
-
-### Docker Best Practices
-- **Multi-stage Builds**: Separate build and runtime environments
-- **Security**: Non-root user, minimal base images
-- **Persistence**: External volume mounts for data retention
-- **Configuration**: Environment variables and command-line flexibility
-
-## Testing Strategy
-
-### Test Coverage Areas
-1. **Unit Tests**: Database operations, file operations, UUID generation
-2. **Integration Tests**: End-to-end rename operations with database
-3. **API Tests**: Web endpoints with various input scenarios
-4. **Docker Tests**: Container build and runtime verification
-
-### Test Data Management
-- **Temporary Directories**: Use `t.TempDir()` for isolated test environments
-- **Database Cleanup**: Defer cleanup for test databases
-- **Mock Data**: Realistic file structures and metadata
-
-## Common Development Tasks
-
-### Adding New Features
-1. **Database Changes**: Update schema, add migrations if needed
-2. **API Endpoints**: Follow RESTful patterns, add comprehensive tests
-3. **Web Interface**: Update both HTML templates and JavaScript
-4. **Docker Updates**: Modify build process if new dependencies added
-
-### Performance Considerations
-- **Database Queries**: Use appropriate indexes, limit result sets
-- **File Operations**: Handle large directories efficiently
-- **Memory Usage**: Stream file operations for large files
-- **Web Assets**: Minimize JavaScript, inline critical CSS
-
-### Security Considerations
-- **SQL Injection**: Use parameterized queries exclusively
-- **Path Traversal**: Validate all file paths
-- **CORS**: Configure appropriately for API access
-- **Input Validation**: Sanitize all user inputs
-
-## Deployment Scenarios
-
-### Development
-```bash
-go run *.go -dir=./test-files -web-port=8080
-```
-
-### Production
-```bash
-docker-compose up -d
-# Access at http://localhost:8080
-```
-
-### CI/CD Integration
-- **Build**: Multi-arch Docker images
-- **Test**: Automated test suite with coverage
-- **Deploy**: Container registry push and deployment
-
-## Troubleshooting Guide
-
-### Common Issues
-1. **CGO Errors**: Ensure gcc and sqlite-dev installed
-2. **Permission Issues**: Check file/directory permissions
-3. **Database Locks**: Handle concurrent access properly
-4. **Port Conflicts**: Configure alternative ports as needed
-
-This project demonstrates modern Go development practices with comprehensive logging, web interfaces, and containerized deployment.
+### Web Development
+- **Template embedding**: HTML templates as Go string literals
+- **No external assets**: All CSS/JS inline for portability
+- **API consistency**: All endpoints return JSON with same error format
+- **Search optimization**: Database indexes on searchable fields

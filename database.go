@@ -67,7 +67,7 @@ func (d *Database) createTables() error {
 func (d *Database) InsertFileRecord(record FileRecord) error {
 	query := `
 	INSERT INTO file_renames (
-		original_name, new_name, file_path, file_size, 
+		original_name, new_name, file_path, file_size,
 		file_mode, mod_time, renamed_at, success, error_msg
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
@@ -93,9 +93,9 @@ func (d *Database) InsertFileRecord(record FileRecord) error {
 
 func (d *Database) GetAllRecords() ([]FileRecord, error) {
 	query := `
-	SELECT id, original_name, new_name, file_path, file_size, 
+	SELECT id, original_name, new_name, file_path, file_size,
 		   file_mode, mod_time, renamed_at, success, error_msg
-	FROM file_renames 
+	FROM file_renames
 	ORDER BY renamed_at DESC
 	`
 
@@ -142,9 +142,9 @@ func (d *Database) GetAllRecords() ([]FileRecord, error) {
 
 func (d *Database) GetRecordsByOriginalName(originalName string) ([]FileRecord, error) {
 	query := `
-	SELECT id, original_name, new_name, file_path, file_size, 
+	SELECT id, original_name, new_name, file_path, file_size,
 		   file_mode, mod_time, renamed_at, success, error_msg
-	FROM file_renames 
+	FROM file_renames
 	WHERE original_name LIKE ?
 	ORDER BY renamed_at DESC
 	`
@@ -226,6 +226,21 @@ func (d *Database) GetStats() (map[string]interface{}, error) {
 
 func (d *Database) Close() error {
 	return d.db.Close()
+}
+
+// HasOriginalName returns true if a record with the given original name already exists.
+func (d *Database) HasOriginalName(name string) (bool, error) {
+	query := `SELECT 1 FROM file_renames WHERE original_name = ? LIMIT 1`
+	row := d.db.QueryRow(query, name)
+	var dummy int
+	err := row.Scan(&dummy)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("has original name query failed: %w", err)
+	}
+	return true, nil
 }
 
 func getFileInfo(filePath string) (int64, string, time.Time, error) {

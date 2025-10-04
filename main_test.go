@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -96,5 +97,60 @@ func TestValidateConfig(t *testing.T) {
 				t.Errorf("validateConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestRenameFilesSkipAlreadyProcessed(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "test_rename_skip")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	initialFiles := []string{"alpha.txt", "beta.log"}
+	for _, n := range initialFiles {
+		if err := os.WriteFile(filepath.Join(tempDir, n), []byte("data"), 0644); err != nil {
+			t.Fatalf("write file %s: %v", n, err)
+		}
+	}
+
+	// Place database outside watched directory to ensure it isn't renamed during tests
+	dbDir, err := ioutil.TempDir("", "test_db_dir")
+	if err != nil {
+		t.Fatalf("Failed to create temp db dir: %v", err)
+	}
+	defer os.RemoveAll(dbDir)
+	dbPath := filepath.Join(dbDir, "test.db")
+	db, err := NewDatabase(dbPath)
+	if err != nil {
+		t.Fatalf("NewDatabase: %v", err)
+	}
+	defer db.Close()
+
+	cfg := Config{Dir: tempDir, DryRun: false}
+	if err := renameFiles(cfg, db); err != nil {
+		t.Fatalf("first renameFiles: %v", err)
+	}
+
+	// Second run should skip all (now UUID named or recorded originals)
+	time.Sleep(5 * time.Millisecond)
+	if err := renameFiles(cfg, db); err != nil {
+		t.Fatalf("second renameFiles: %v", err)
+	}
+
+	records, err := db.GetAllRecords()
+	if err != nil {
+		t.Fatalf("GetAllRecords: %v", err)
+	}
+
+	// Count occurrences of original names
+	occurrences := map[string]int{}
+	for _, r := range records {
+		occurrences[r.OriginalName]++
+	}
+	for _, n := range initialFiles {
+		if occurrences[n] != 1 {
+			t.Fatalf("expected exactly 1 record for original %s, got %d", n, occurrences[n])
+		}
 	}
 }

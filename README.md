@@ -58,20 +58,99 @@ go mod download
 go build -o auto-rename .
 ```
 
-### 2. Start Web Interface Only
+### 2. Configure with .env File (Recommended)
+```bash
+# Copy the example .env file
+cp .env.example .env
+
+# Edit .env and set your configuration
+# For example:
+# DIR=/path/to/files
+# WEB_PORT=8080
+# DRY_RUN=false
+```
+
+Then simply run:
+```bash
+./auto-rename
+```
+
+### 3. Or Use Command Line Options
+
+**Start Web Interface Only**:
 ```bash
 ./auto-rename -web-only -db=./renames.db -web-port=8080
 ```
 Then visit: http://localhost:8080
 
-### 3. Rename Files with Web Interface
+**Rename Files with Web Interface**:
 ```bash
 ./auto-rename -dir=/path/to/files -db=./renames.db -web-port=8080
 ```
 
-### 4. Dry Run Mode
+**Dry Run Mode**:
 ```bash
 ./auto-rename -dir=/path/to/files -dry-run -db=./renames.db -web-port=8080
+```
+
+**Continuous Monitoring (Cron Mode)**:
+Run a scan every minute to catch new files dropped into the directory:
+```bash
+./auto-rename -dir=/path/to/watch -db=./renames.db -web-port=8080 -cron
+```
+The application will:
+- Perform an initial rename pass
+- Every 60 seconds scan the directory again
+- Only rename files that have not been processed yet
+- Skip files whose names already look like UUIDs
+
+## Configuration
+
+The application supports three ways to configure settings (in order of precedence):
+
+1. **Command-line flags** (highest priority)
+2. **Environment variables**
+3. **.env file** (lowest priority)
+
+### Environment Variables
+
+You can set these environment variables directly or use a `.env` file:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DIR` | Directory containing files to rename | (none) |
+| `DRY_RUN` | Preview changes without renaming (`true`/`false`) | `false` |
+| `WEB_PORT` | Port for web interface | `8080` |
+| `WEB_ONLY` | Start web server without renaming (`true`/`false`) | `false` |
+| `DB_PATH` | SQLite database file path | `./file_renames.db` |
+| `CRON` | Continuously scan directory every minute (`true`/`false`) | `false` |
+
+### Using .env File
+
+Create a `.env` file in the project root:
+
+```bash
+# Example .env configuration
+DIR=/Users/username/Documents/files
+DRY_RUN=false
+WEB_PORT=8080
+DB_PATH=./renames.db
+CRON=true
+```
+
+Then run the application without any flags:
+```bash
+./auto-rename
+```
+
+### Configuration Priority Example
+
+```bash
+# .env file has: DIR=/default/path
+# Environment variable: export DIR=/env/path
+# Command line: ./auto-rename -dir=/flag/path
+
+# Result: Uses /flag/path (command-line flags have highest priority)
 ```
 
 ## Command Line Options
@@ -83,6 +162,7 @@ Then visit: http://localhost:8080
 | `-web-port` | Port for web interface | `8080` |
 | `-web-only` | Start web server without renaming | `false` |
 | `-db` | SQLite database file path | `./file_renames.db` |
+| `-cron` | Continuously rescan directory every minute | `false` |
 
 ## Docker Deployment
 

@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Rename Records</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-10">
+    <div class="max-w-7xl mx-auto bg-white p-8 rounded-lg shadow-lg">
+        <h1 class="text-3xl font-bold text-gray-800 border-b-4 border-blue-500 pb-3 mb-6">📋 File Rename Records</h1>
+
+        <div class="flex gap-3 my-6">
+            <a href="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                <i class="material-icons text-sm">home</i> Home
+            </a>
+            <a href="/api/records" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                <i class="material-icons text-sm">storage</i> JSON Data
+            </a>
+        </div>
+
+        <div class="my-6 flex gap-3">
+            <input type="text" id="searchInput" placeholder="Search by original filename..." class="px-4 py-2 w-80 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button onclick="searchRecords()" class="px-5 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors cursor-pointer">🔍 Search</button>
+            <button onclick="loadAllRecords()" class="px-5 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors cursor-pointer">📋 Show All</button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse my-5" id="recordsTable">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">ID</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Original Name</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">New Name (UUID)</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">File Path</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Size</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Status</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Renamed At</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Error</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function loadAllRecords() {
+            fetch('/api/records')
+                .then(response => response.json())
+                .then(data => displayRecords(data))
+                .catch(error => {
+                    console.error('Error loading records:', error);
+                    document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8">Error loading records</td></tr>';
+                });
+        }
+
+        function searchRecords() {
+            const query = document.getElementById('searchInput').value;
+            if (!query.trim()) {
+                loadAllRecords();
+                return;
+            }
+
+            fetch('/api/records/search?q=' + encodeURIComponent(query))
+                .then(response => response.json())
+                .then(data => displayRecords(data))
+                .catch(error => {
+                    console.error('Error searching records:', error);
+                    document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8">Error searching records</td></tr>';
+                });
+        }
+
+        function displayRecords(records) {
+            const tbody = document.getElementById('recordsBody');
+            if (!records || records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8">No records found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = records.map(record => {
+                const status = record.success ? '<span class="text-green-600 font-bold">✅ Success</span>' : '<span class="text-red-600 font-bold">❌ Failed</span>';
+                const errorMsg = record.error_msg || '';
+                const fileSize = record.file_size ? formatFileSize(record.file_size) : '-';
+                const renamedAt = new Date(record.renamed_at).toLocaleString();
+
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-3 border-b border-gray-200">${record.id}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 max-w-[200px] truncate" title="${record.original_name}">${record.original_name}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 max-w-[200px] truncate" title="${record.new_name}">${record.new_name}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 max-w-[300px] truncate text-gray-600 text-sm" title="${record.file_path}">${record.file_path}</td>
+                        <td class="px-3 py-3 border-b border-gray-200">${fileSize}</td>
+                        <td class="px-3 py-3 border-b border-gray-200">${status}</td>
+                        <td class="px-3 py-3 border-b border-gray-200 text-sm text-gray-600">${renamedAt}</td>
+                        <td class="px-3 py-3 border-b border-gray-200">${errorMsg}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Load records on page load
+        loadAllRecords();
+
+        // Enable search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchRecords();
+            }
+        });
+    </script>
+</body>
+</html>
