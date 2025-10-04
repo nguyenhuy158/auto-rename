@@ -2,8 +2,8 @@ version: '3.8'
 
 services:
   auto-rename:
-    build: .
     container_name: auto-rename
+    image: auto-rename
     ports:
       - "8080:8080"
     env_file:
@@ -16,7 +16,8 @@ services:
     environment:
       - DATABASE_PATH=/app/renames.db
     # Default: Start web server only (access at http://localhost:8080)
-    command: ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
+    # command: ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
+    restart: always
 
     # Alternative commands:
     # For renaming files and then starting web server:

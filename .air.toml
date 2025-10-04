@@ -6,7 +6,6 @@ tmp_dir = "tmp"
 
 [cmd]
   bin = "go"
-  args = ["run", "cmd/auto-rename/main.go", "-cron", "-dir=/tmp"]
 
 [env]
 DIR = ".env"
@@ -14,4 +13,3 @@ DIR = ".env"
 [build]
 cmd = "go build -o ./tmp/main cmd/auto-rename/main.go"
 bin = "./tmp/main"
-args = ["-dir=./tmp"]

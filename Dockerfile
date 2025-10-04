@@ -17,6 +17,7 @@ RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 COPY template ./template
+COPY static ./static
 
 # Build the application with CGO enabled for SQLite
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o auto-rename ./cmd/auto-rename
@@ -27,10 +28,14 @@ FROM alpine:latest
 # Install ca-certificates and sqlite for runtime
 RUN apk --no-cache add ca-certificates sqlite
 
-WORKDIR /root/
+WORKDIR /app/
 
 # Copy the binary from builder stage
 COPY --from=builder /app/auto-rename .
+
+RUN mkdir -p /app/template /app/static
+COPY --from=builder /app/template /root/template
+COPY --from=builder /app/static /root/static
 
 # Create directories for files to be renamed and database
 RUN mkdir -p /app/files /app/data
@@ -45,4 +50,4 @@ EXPOSE 8080
 ENTRYPOINT ["./auto-rename"]
 
 # Default arguments - start web server only
-CMD ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
+# CMD ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
