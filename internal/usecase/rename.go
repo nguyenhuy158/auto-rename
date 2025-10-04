@@ -51,6 +51,8 @@ func RenameFiles(config config.Config, db *infrastructure.Database) error {
 		return fmt.Errorf("failed to scan directory: %w", err)
 	}
 
+	log.Printf("Found %d files to process", len(files))
+	log.Printf("Files: %v", files)
 	renamedCount := 0
 	skippedCount := 0
 	for _, file := range files {
@@ -202,18 +204,41 @@ func StartCronScanner(config config.Config, db *infrastructure.Database) {
 
 // RenameOnlyNewFiles chỉ đổi tên file chưa có trong DB
 func RenameOnlyNewFiles(config config.Config, db *infrastructure.Database) (int, int, error) {
-	files, err := os.ReadDir(config.Dir)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to read directory: %w", err)
+	var files []os.DirEntry
+	var err error
+	if config.RenameSubfolder {
+		err = filepath.WalkDir(config.Dir, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if !d.IsDir() {
+				files = append(files, &fileEntryWrapper{d, path})
+			}
+			return nil
+		})
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to scan directory: %w", err)
+		}
+	} else {
+		entries, e := os.ReadDir(config.Dir)
+		if e != nil {
+			return 0, 0, fmt.Errorf("failed to read directory: %w", e)
+		}
+		for _, d := range entries {
+			if !d.IsDir() {
+				files = append(files, &fileEntryWrapper{d, filepath.Join(config.Dir, d.Name())})
+			}
+		}
 	}
 
 	processed := 0
 	skipped := 0
 	for _, file := range files {
+		name := file.Name()
+		path := file.(interface{ Path() string }).Path()
 		if file.IsDir() {
 			continue
 		}
-		name := file.Name()
 		if SameFileAsDB(config, name) {
 			skipped++
 			continue
@@ -231,9 +256,9 @@ func RenameOnlyNewFiles(config config.Config, db *infrastructure.Database) (int,
 			skipped++
 			continue
 		}
-		oldPath := filepath.Join(config.Dir, name)
+		oldPath := path
 		newName := GenerateUUIDName(name)
-		newPath := filepath.Join(config.Dir, newName)
+		newPath := filepath.Join(filepath.Dir(path), newName)
 		fileSize, fileMode, modTime, infoErr := infrastructure.GetFileInfo(oldPath)
 		if infoErr != nil {
 			log.Printf("[cron] info failed %s: %v", name, infoErr)
