@@ -19,6 +19,23 @@ func NewDatabase(dbPath string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Auto-create table if not exists
+	createTableSQL := `
+    CREATE TABLE IF NOT EXISTS file_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        original_name TEXT,
+        new_name TEXT,
+        file_path TEXT,
+        file_size INTEGER,
+        file_mode TEXT,
+        mod_time TEXT,
+        success BOOLEAN,
+        error_msg TEXT,
+        renamed_at TEXT
+    );`
+	if _, err := db.Exec(createTableSQL); err != nil {
+		return nil, err
+	}
 	return &Database{db: db}, nil
 }
 
