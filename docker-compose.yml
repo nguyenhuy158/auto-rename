@@ -6,17 +6,18 @@ services:
     container_name: auto-rename
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     volumes:
       # Mount your local directory for files to be renamed
-      # Change /path/to/your/files to the actual path on your host
-      - /path/to/your/files:/app/files
+      # Set FILES_PATH in .env, default to ./files if not set
       # Mount directory for persistent database storage
       - ./data:/app/data
     environment:
-      - DATABASE_PATH=/app/data/renames.db
+      - DATABASE_PATH=/app/renames.db
     # Default: Start web server only (access at http://localhost:8080)
     command: ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
-    
+
     # Alternative commands:
     # For renaming files and then starting web server:
     # command: ["-dir=/app/files", "-db=/app/data/renames.db", "-web-port=8080"]

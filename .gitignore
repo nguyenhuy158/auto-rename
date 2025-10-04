@@ -3,3 +3,4 @@ tmp/*
 *.db
 auto-rename
 */.DS_Store
+data

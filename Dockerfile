@@ -14,10 +14,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY *.go ./
+COPY cmd ./cmd
+COPY internal ./internal
+COPY template ./template
 
 # Build the application with CGO enabled for SQLite
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o auto-rename .
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o auto-rename ./cmd/auto-rename
 
 # Final stage
 FROM alpine:latest
