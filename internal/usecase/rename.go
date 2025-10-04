@@ -17,19 +17,47 @@ import (
 
 // renameFiles thực hiện đổi tên file trong thư mục
 func RenameFiles(config config.Config, db *infrastructure.Database) error {
-	fmt.Printf("Scanning directory: %s\n", config.Dir)
+	log.Printf("Scanning directory: %s", config.Dir)
 	if config.DryRun {
-		fmt.Println("DRY RUN MODE - No files will be renamed")
+		log.Printf("DRY RUN MODE - No files will be renamed")
 	}
 
-	files, err := os.ReadDir(config.Dir)
+	var files []os.DirEntry
+	var err error
+	if config.RenameSubfolder {
+		err = filepath.WalkDir(config.Dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			// Chỉ xử lý file, không đổi tên folder
+			if !d.IsDir() {
+				files = append(files, &fileEntryWrapper{d, path})
+			}
+			return nil
+		})
+	} else {
+		entries, e := os.ReadDir(config.Dir)
+		if e != nil {
+			err = e
+		} else {
+			for _, d := range entries {
+				if !d.IsDir() {
+					files = append(files, &fileEntryWrapper{d, filepath.Join(config.Dir, d.Name())})
+				}
+			}
+		}
+	}
 	if err != nil {
-		return fmt.Errorf("failed to read directory: %w", err)
+		return fmt.Errorf("failed to scan directory: %w", err)
 	}
 
 	renamedCount := 0
 	skippedCount := 0
 	for _, file := range files {
+		// fileEntryWrapper đảm bảo có path đầy đủ
+		name := file.Name()
+		path := file.(interface{ Path() string }).Path()
+		log.Printf("Scanning file: %s", path)
 		if file.IsDir() {
 			continue
 		}
@@ -50,9 +78,9 @@ func RenameFiles(config config.Config, db *infrastructure.Database) error {
 			continue
 		}
 
-		oldPath := filepath.Join(config.Dir, file.Name())
-		newName := GenerateUUIDName(file.Name())
-		newPath := filepath.Join(config.Dir, newName)
+		oldPath := path
+		newName := GenerateUUIDName(name)
+		newPath := filepath.Join(filepath.Dir(path), newName)
 
 		fileSize, fileMode, modTime, err := infrastructure.GetFileInfo(oldPath)
 		if err != nil {
@@ -69,7 +97,7 @@ func RenameFiles(config config.Config, db *infrastructure.Database) error {
 			continue
 		}
 
-		fmt.Printf("  %s -> %s\n", file.Name(), newName)
+		log.Printf("  %s -> %s", file.Name(), newName)
 
 		var renameErr error
 		success := true
@@ -104,9 +132,9 @@ func RenameFiles(config config.Config, db *infrastructure.Database) error {
 	}
 
 	if config.DryRun {
-		fmt.Printf("\nWould rename %d files (skipped %d)\n", renamedCount, skippedCount)
+		log.Printf("Would rename %d files (skipped %d)", renamedCount, skippedCount)
 	} else {
-		fmt.Printf("\nSuccessfully renamed %d files (skipped %d)\n", renamedCount, skippedCount)
+		log.Printf("Successfully renamed %d files (skipped %d)", renamedCount, skippedCount)
 	}
 
 	return nil
@@ -133,6 +161,16 @@ func GenerateUUIDName(originalName string) string {
 	ext := filepath.Ext(originalName)
 	newUUID := uuid.New().String()
 	return newUUID + ext
+}
+
+// fileEntryWrapper dùng để lưu path đầy đủ cho file
+type fileEntryWrapper struct {
+	os.DirEntry
+	fullPath string
+}
+
+func (f *fileEntryWrapper) Path() string {
+	return f.fullPath
 }
 
 // SameFileAsDB kiểm tra file có phải là file database không

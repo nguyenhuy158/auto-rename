@@ -1,12 +1,12 @@
 # Air configuration for auto-reload
 # https://github.com/cosmtrek/air
 
-root = "./cmd/auto-rename"
+root = "."
 tmp_dir = "tmp"
 
 [cmd]
   bin = "go"
-  args = ["run", "main.go", "-cron", "-dir=/tmp"]
+  args = ["run", "cmd/auto-rename/main.go", "-cron", "-dir=/tmp"]
 
 [env]
 DIR = ".env"
