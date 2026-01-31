@@ -7,54 +7,62 @@ import (
 	"log"
 	"os"
 	"strconv"
-
-	"github.com/joho/godotenv"
 )
 
 // Config lưu thông tin cấu hình ứng dụng
 type Config struct {
-	Dir           string
-	DryRun        bool
-	WebPort       string
-	WebOnly       bool
-	DbPath        string
-	Cron          bool
-	CronExpr      string
-	RenameSubfolder bool
+	Dir                  string
+	DryRun               bool
+	WebPort              string
+	WebOnly              bool
+	DbPath               string
+	Cron                 bool
+	CronExpr             string
+	RenameSubfolder      bool
+	FormatSize           string
+	FormatDatetime       string
+	FormatTimezone       string
+	FormatSizeDecimals   int
 }
 
-// parseFlags lấy config từ flag và env
+// parseFlags lấy config từ settings.json và CLI flags
 func ParseFlags() Config {
-	_ = godotenv.Load()
-	envDir := os.Getenv("DIR")
-	envDryRun := getBoolEnv("DRY_RUN", false)
-	envWebPort := getEnv("WEB_PORT", "8080")
-	envWebOnly := getBoolEnv("WEB_ONLY", false)
-	envDbPath := getEnv("DB_PATH", "./file_renames.db")
-	envCron := getBoolEnv("CRON", false)
-	envCronExpr := getEnv("CRON_EXPR", "*/1 * * * *")
-	envRenameSubfolder := getBoolEnv("RENAME_SUBFOLDER", true)
-
 	log.Printf("Reading configuration...")
-	log.Printf("envDir=%v", envDir)
-	log.Printf("envDryRun=%v", envDryRun)
-	log.Printf("envWebPort=%v", envWebPort)
-	log.Printf("envWebOnly=%v", envWebOnly)
-	log.Printf("envDbPath=%v", envDbPath)
-	log.Printf("envCron=%v", envCron)
-	log.Printf("envCronExpr=%v", envCronExpr)
-	log.Printf("envRenameSubfolder=%v", envRenameSubfolder)
+	
+	// Try to load settings.json, fallback to default if not found
+	settings, err := LoadSettings("settings.json")
+	if err != nil {
+		log.Printf("Warning loading settings.json: %v", err)
+		settings = GetDefaultSettings()
+	}
+
+	log.Printf("settingsDir=%v", settings.Dir)
+	log.Printf("settingsDryRun=%v", settings.DryRun)
+	log.Printf("settingsWebPort=%v", settings.WebPort)
+	log.Printf("settingsWebOnly=%v", settings.WebOnly)
+	log.Printf("settingsDbPath=%v", settings.DbPath)
+	log.Printf("settingsCron=%v", settings.Cron)
+	log.Printf("settingsCronExpr=%v", settings.CronExpr)
+	log.Printf("settingsRenameSubfolder=%v", settings.RenameSubfolder)
+	log.Printf("settingsFormatSize=%v", settings.FormatSize)
+	log.Printf("settingsFormatDatetime=%v", settings.FormatDatetime)
+	log.Printf("settingsFormatTimezone=%v", settings.FormatTimezone)
+	log.Printf("settingsFormatSizeDecimals=%v", settings.FormatSizeDecimals)
 	log.Printf("Command line args: %v", os.Args)
 
 	var config Config
-	flag.StringVar(&config.Dir, "dir", envDir, "Directory containing files to rename (can also set DIR env var)")
-	flag.BoolVar(&config.DryRun, "dry-run", envDryRun, "Preview changes without actually renaming files (can also set DRY_RUN env var)")
-	flag.StringVar(&config.WebPort, "web-port", envWebPort, "Port for web interface (can also set WEB_PORT env var)")
-	flag.BoolVar(&config.WebOnly, "web-only", envWebOnly, "Only start web server without renaming files (can also set WEB_ONLY env var)")
-	flag.StringVar(&config.DbPath, "db", envDbPath, "SQLite database path (can also set DB_PATH env var)")
-	flag.BoolVar(&config.Cron, "cron", envCron, "Continuously scan directory (can also set CRON env var)")
-	flag.StringVar(&config.CronExpr, "cron-expr", envCronExpr, "Cron expression for scan schedule (can also set CRON_EXPR env var). Default: '*/1 * * * *' (every minute)")
-	flag.BoolVar(&config.RenameSubfolder, "rename-subfolder", envRenameSubfolder, "Allow renaming files in subfolders (can also set RENAME_SUBFOLDER env var)")
+	flag.StringVar(&config.Dir, "dir", settings.Dir, "Directory containing files to rename")
+	flag.BoolVar(&config.DryRun, "dry-run", settings.DryRun, "Preview changes without actually renaming files")
+	flag.StringVar(&config.WebPort, "web-port", settings.WebPort, "Port for web interface")
+	flag.BoolVar(&config.WebOnly, "web-only", settings.WebOnly, "Only start web server without renaming files")
+	flag.StringVar(&config.DbPath, "db", settings.DbPath, "SQLite database path")
+	flag.BoolVar(&config.Cron, "cron", settings.Cron, "Continuously scan directory")
+	flag.StringVar(&config.CronExpr, "cron-expr", settings.CronExpr, "Cron expression for scan schedule")
+	flag.BoolVar(&config.RenameSubfolder, "rename-subfolder", settings.RenameSubfolder, "Allow renaming files in subfolders")
+	flag.StringVar(&config.FormatSize, "format-size", settings.FormatSize, "Size format: auto, B, KB, MB, GB")
+	flag.StringVar(&config.FormatDatetime, "format-datetime", settings.FormatDatetime, "DateTime format string")
+	flag.StringVar(&config.FormatTimezone, "format-timezone", settings.FormatTimezone, "Timezone: UTC or Local")
+	flag.IntVar(&config.FormatSizeDecimals, "format-size-decimals", settings.FormatSizeDecimals, "Size decimal places: 0-5")
 	flag.Parse()
 
 	return config

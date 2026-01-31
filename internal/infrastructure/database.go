@@ -19,7 +19,7 @@ func NewDatabase(dbPath string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Auto-create table if not exists
+	// Auto-create tables if not exist
 	createTableSQL := `
     CREATE TABLE IF NOT EXISTS file_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +32,11 @@ func NewDatabase(dbPath string) (*Database, error) {
         success BOOLEAN,
         error_msg TEXT,
         renamed_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT,
+        updated_at TEXT
     );`
 	if _, err := db.Exec(createTableSQL); err != nil {
 		return nil, err
@@ -250,6 +255,47 @@ func (d *Database) GetRecordCountByFilter(search, status string, dateFrom, dateT
 		return 0, err
 	}
 	return count, nil
+}
+
+// SaveSetting saves a single setting key-value pair
+func (d *Database) SaveSetting(key, value string) error {
+	_, err := d.db.Exec(
+		"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+		key, value,
+	)
+	return err
+}
+
+// GetSetting retrieves a setting value by key
+func (d *Database) GetSetting(key string) (string, error) {
+	row := d.db.QueryRow("SELECT value FROM settings WHERE key = ?", key)
+	var value string
+	if err := row.Scan(&value); err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return value, nil
+}
+
+// GetAllSettings retrieves all settings as a map
+func (d *Database) GetAllSettings() (map[string]string, error) {
+	rows, err := d.db.Query("SELECT key, value FROM settings")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			return nil, err
+		}
+		settings[key] = value
+	}
+	return settings, nil
 }
 
 // Close đóng kết nối DB

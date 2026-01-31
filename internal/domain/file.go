@@ -88,3 +88,20 @@ type BreadcrumbItem struct {
 	Name string
 	Path string
 }
+
+// SettingsData holds all data for settings page rendering
+type SettingsData struct {
+	Dir                 string
+	DryRun              bool
+	WebPort             string
+	WebOnly             bool
+	DbPath              string
+	Cron                bool
+	CronExpr            string
+	RenameSubfolder     bool
+	FormatSize          string
+	FormatDatetime      string
+	FormatTimezone      string
+	FormatSizeDecimals  int
+	UpdatedAt           string
+}
