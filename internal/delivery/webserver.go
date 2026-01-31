@@ -137,10 +137,14 @@ func (ws *WebServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	funcs := template.FuncMap{
-		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
-		"mul": func(a, b int) int { return a * b },
-		"lt":  func(a, b int) bool { return a < b },
+		"ceil": func(a float64) int { return int(math.Ceil(a)) },
+		"div":  func(a, b int) float64 { return float64(a) / float64(b) },
+		"mul":  func(a, b int) int { return a * b },
+		"add":  func(a, b int) int { return a + b },
+		"sub":  func(a, b int) int { return a - b },
+		"eq":   func(a, b string) bool { return a == b },
+		"lt":   func(a, b int) bool { return a < b },
+		"gt":   func(a, b int) bool { return a > b },
 	}
 
 	tmpl, err := template.New("logs.html").Funcs(funcs).ParseFiles("template/logs.html")

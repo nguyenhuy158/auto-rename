@@ -1,203 +1,259 @@
-
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Rename Records</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Poppins:wght@500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Poppins', sans-serif; }
+        .font-serif { font-family: 'Instrument Serif', serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        body.dark { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); color: #111827; }
+        
+        .gradient-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+        .glass { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        .nav-link { position: relative; transition: all 0.3s ease; }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after { width: 100%; }
+        
+        .section-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.875rem;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .form-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .form-input:focus {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+            outline: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 20px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(107, 114, 128, 0.3);
+            border: 1px solid rgba(107, 114, 128, 0.5);
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background: rgba(107, 114, 128, 0.5);
+        }
+        
+        .table-header {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border-bottom: 2px solid rgba(99, 102, 241, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .success-badge { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .error-badge { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        
+        body.dark .glass { background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(99, 102, 241, 0.2); }
+        body.dark .table-header {
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
+        }
+        body.dark .text-gray-50 { color: #111827; }
+        body.dark .text-gray-100 { color: #1f2937; }
+        body.dark .text-gray-300 { color: #6b7280; }
+        body.dark .text-gray-400 { color: #9ca3af; }
+    </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-10">
-<nav class="mb-8 bg-white dark:bg-gray-800 p-2 sm:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <button id="nav-toggle" class="sm:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
-                <span class="material-icons text-2xl text-blue-700 dark:text-blue-300">menu</span>
+<body class="min-h-screen text-gray-50">
+<!-- Navigation -->
+<nav class="glass sticky top-0 z-50 border-b">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <div class="gradient-primary w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white shadow-lg">
+                    ↻
+                </div>
+                <span class="font-serif text-2xl font-bold text-white">Auto-Rename</span>
+            </div>
+            <button id="dark-toggle" class="px-4 py-2 rounded-lg glass text-gray-100 font-medium text-sm hover:bg-white/10 transition">
+                <span id="dark-label">🌙 Dark</span>
             </button>
-            <span class="font-bold text-blue-700 dark:text-blue-300 text-lg sm:hidden">Menu</span>
         </div>
-        <button id="dark-toggle" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center gap-2">
-            <span class="material-icons" id="dark-icon">dark_mode</span>
-            <span id="dark-label">Dark</span>
-        </button>
-    </div>
-    <div id="nav-links" class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mt-2 sm:mt-0">
-        <a href="/" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">home</span>
-            Home
-        </a>
-        <a href="/records" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">list_alt</span>
-            Records
-        </a>
-        <a href="/logs" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">history</span>
-            Logs
-        </a>
-        <a href="/browse" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">folder</span>
-            Browse
-        </a>
-        <a href="/settings" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">settings</span>
-            Settings
-        </a>
+        <div id="nav-links" class="flex flex-col sm:flex-row gap-2 sm:gap-6">
+            <a href="/" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📊 Dashboard</a>
+            <a href="/records" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📋 Records</a>
+            <a href="/logs" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📜 Logs</a>
+            <a href="/browse" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📁 Browse</a>
+            <a href="/settings" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">⚙️ Settings</a>
+        </div>
     </div>
 </nav>
-    <div class="max-w-7xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">📋 File Rename Records (SSR)</h1>
 
-        <div class="flex flex-wrap gap-2 sm:gap-3 my-6">
-            <a href="/" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
-                <i class="material-icons text-sm">home</i> Home
-            </a>
-            <a href="/api/records" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
-                <i class="material-icons text-sm">storage</i> JSON Data
-            </a>
-        </div>
+<!-- Main Content -->
+<div class="max-w-7xl mx-auto px-6 py-12">
+    <div class="mb-8">
+        <h1 class="section-title mb-2">Records</h1>
+        <p class="text-gray-300 font-medium">Search and filter file rename operations</p>
+    </div>
 
-        <!-- Search and Filter Form -->
-        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
-            <form method="GET" action="/records" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Search (Original or UUID)</label>
-                        <input type="text" name="search" placeholder="Search filename or UUID..." value="{{.SearchQuery}}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Status</label>
-                        <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">All</option>
-                            <option value="success" {{if eq .StatusFilter "success"}}selected{{end}}>Success Only</option>
-                            <option value="failed" {{if eq .StatusFilter "failed"}}selected{{end}}>Failed Only</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">From Date</label>
-                        <input type="datetime-local" name="dateFrom" value="{{.DateFrom}}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">To Date</label>
-                        <input type="datetime-local" name="dateTo" value="{{.DateTo}}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
+    <!-- Search and Filter Form -->
+    <div class="glass rounded-xl p-6 border border-white/10 mb-8">
+        <form method="GET" action="/records" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Search Filename or UUID</label>
+                    <input type="text" name="search" placeholder="Enter filename or UUID..." value="{{.SearchQuery}}" class="w-full px-4 py-2 form-input rounded-lg">
                 </div>
-                <div class="flex gap-3">
-                    <button type="submit" class="px-5 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors cursor-pointer">🔍 Search</button>
-                    <a href="/records" class="px-5 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">📋 Clear Filters</a>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Status</label>
+                    <select name="status" class="w-full px-4 py-2 form-input rounded-lg">
+                        <option value="">All Status</option>
+                        <option value="success" {{if eq .StatusFilter "success"}}selected{{end}}>✓ Success Only</option>
+                        <option value="failed" {{if eq .StatusFilter "failed"}}selected{{end}}>✗ Failed Only</option>
+                    </select>
                 </div>
-            </form>
-        </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">From Date</label>
+                    <input type="datetime-local" name="dateFrom" value="{{.DateFrom}}" class="w-full px-4 py-2 form-input rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">To Date</label>
+                    <input type="datetime-local" name="dateTo" value="{{.DateTo}}" class="w-full px-4 py-2 form-input rounded-lg">
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="btn-primary px-6 py-2 text-white rounded-lg font-medium transition">
+                    🔍 Search
+                </button>
+                <a href="/records" class="btn-secondary px-6 py-2 text-gray-200 rounded-lg font-medium transition">
+                    ↻ Clear
+                </a>
+            </div>
+        </form>
+    </div>
 
-        <!-- Records Info -->
-        <div class="mb-4 text-gray-700 dark:text-gray-300">
-            <p class="font-semibold">
-                Showing {{len .Records}} of {{.TotalRecords}} records
-                {{if .SearchQuery}}
-                    (search: <span class="font-mono">{{.SearchQuery}}</span>)
-                {{end}}
-                {{if .StatusFilter}}
-                    (status: {{.StatusFilter}})
-                {{end}}
-            </p>
-        </div>
+    <!-- Records Info -->
+    <div class="mb-6 text-gray-300">
+        <p class="font-semibold">
+            Showing {{len .Records}} of {{.TotalRecords}} records
+            {{if .SearchQuery}}
+                (search: <span class="font-mono text-indigo-300">{{.SearchQuery}}</span>)
+            {{end}}
+            {{if .StatusFilter}}
+                (status: {{.StatusFilter}})
+            {{end}}
+        </p>
+    </div>
 
-        <!-- Records Table -->
+    <!-- Records Table -->
+    <div class="glass rounded-xl overflow-hidden border border-white/10 mb-8">
         <div class="overflow-x-auto">
-            <table class="min-w-[400px] w-full border-collapse my-5 text-xs sm:text-base">
+            <table class="w-full text-sm">
                 <thead>
-                    <tr class="bg-gray-50 dark:bg-gray-700">
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">ID</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Original Name</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">New Name (UUID)</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">File Path</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Size</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Status</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Renamed At</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Error</th>
+                    <tr class="table-header">
+                        <th class="px-6 py-3 text-left text-gray-300 font-semibold">ID</th>
+                        <th class="px-6 py-3 text-left text-gray-300 font-semibold">Original Name</th>
+                        <th class="px-6 py-3 text-left text-gray-300 font-semibold">New UUID</th>
+                        <th class="px-6 py-3 text-left text-gray-300 font-semibold">File Path</th>
+                        <th class="px-6 py-3 text-right text-gray-300 font-semibold">Size</th>
+                        <th class="px-6 py-3 text-left text-gray-300 font-semibold">Status</th>
+                        <th class="px-6 py-3 text-left text-gray-300 font-semibold">Renamed At</th>
                     </tr>
                 </thead>
                 <tbody>
                     {{if .Records}}
                         {{range .Records}}
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100">{{.Id}}</td>
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 max-w-[200px] truncate text-gray-800 dark:text-gray-100" title="{{.OriginalName}}">{{.OriginalName}}</td>
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 max-w-[200px] truncate text-gray-800 dark:text-gray-100 font-mono text-xs" title="{{.NewName}}">{{.NewName}}</td>
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 max-w-[300px] truncate text-gray-800 dark:text-gray-100 text-sm" title="{{.FilePath}}">{{.FilePath}}</td>
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 text-right">{{.FileSize}} B</td>
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100">
-                                    {{if .Success}}
-                                        <span class="text-green-600 font-bold">✓ Success</span>
-                                    {{else}}
-                                        <span class="text-red-600 font-bold">✗ Failed</span>
-                                    {{end}}
-                                </td>
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-sm text-gray-800 dark:text-gray-100">{{.RenamedAt}}</td>
-                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 text-sm">{{.ErrorMsg}}</td>
-                            </tr>
+                        <tr class="border-t border-white/5 hover:bg-white/5 transition">
+                            <td class="px-6 py-3 text-gray-300">{{.Id}}</td>
+                            <td class="px-6 py-3 text-gray-100 font-medium">{{.OriginalName}}</td>
+                            <td class="px-6 py-3 font-mono text-indigo-300 text-xs truncate" title="{{.NewName}}">{{.NewName}}</td>
+                            <td class="px-6 py-3 text-gray-400 text-xs truncate max-w-[250px]" title="{{.FilePath}}">{{.FilePath}}</td>
+                            <td class="px-6 py-3 text-right text-gray-300">{{.FileSize}} B</td>
+                            <td class="px-6 py-3">
+                                {{if .Success}}
+                                    <span class="success-badge px-3 py-1 rounded-lg text-xs font-medium inline-block">✓ Success</span>
+                                {{else}}
+                                    <span class="error-badge px-3 py-1 rounded-lg text-xs font-medium inline-block">✗ Failed</span>
+                                {{end}}
+                            </td>
+                            <td class="px-6 py-3 text-gray-400 text-xs">{{.RenamedAt}}</td>
+                        </tr>
                         {{end}}
                     {{else}}
                         <tr>
-                            <td colspan="8" class="px-3 py-6 text-center text-gray-600 dark:text-gray-400">No records found</td>
+                            <td colspan="7" class="px-6 py-8 text-center text-gray-400">No records found</td>
                         </tr>
                     {{end}}
                 </tbody>
             </table>
         </div>
+    </div>
 
-        <!-- Pagination Controls -->
-        <div class="flex justify-center items-center gap-4 my-6">
+    <!-- Pagination Controls -->
+    <div class="flex flex-col sm:flex-row justify-center items-center gap-6">
+        <div>
             {{if gt .CurrentPage 1}}
-                <a href="/records?page={{sub .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}{{if .StatusFilter}}&status={{.StatusFilter}}{{end}}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">← Previous</a>
+                <a href="/records?page={{sub .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}{{if .StatusFilter}}&status={{.StatusFilter}}{{end}}" class="btn-primary px-6 py-2 text-white rounded-lg font-medium transition inline-block">
+                    ← Previous
+                </a>
             {{else}}
-                <button class="px-4 py-2 bg-gray-300 text-white rounded cursor-not-allowed" disabled>← Previous</button>
+                <button class="px-6 py-2 rounded-lg font-medium text-gray-500 opacity-50 cursor-not-allowed" disabled>← Previous</button>
             {{end}}
-            
-            <span class="font-bold text-gray-700 dark:text-gray-300">Page {{.CurrentPage}} of {{ceil (div .TotalRecords .PageSize)}}</span>
-            
+        </div>
+        
+        <span class="font-semibold text-gray-300">Page {{.CurrentPage}} of {{ceil (div .TotalRecords .PageSize)}}</span>
+        
+        <div>
             {{if lt (mul .CurrentPage .PageSize) .TotalRecords}}
-                <a href="/records?page={{add .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}{{if .StatusFilter}}&status={{.StatusFilter}}{{end}}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Next →</a>
+                <a href="/records?page={{add .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}{{if .StatusFilter}}&status={{.StatusFilter}}{{end}}" class="btn-primary px-6 py-2 text-white rounded-lg font-medium transition inline-block">
+                    Next →
+                </a>
             {{else}}
-                <button class="px-4 py-2 bg-gray-300 text-white rounded cursor-not-allowed" disabled>Next →</button>
+                <button class="px-6 py-2 rounded-lg font-medium text-gray-500 opacity-50 cursor-not-allowed" disabled>Next →</button>
             {{end}}
         </div>
     </div>
+</div>
 
-    <script>
-        // Hamburger menu logic
-        const navToggle = document.getElementById('nav-toggle');
-        const navLinks = document.getElementById('nav-links');
-        navToggle.addEventListener('click', () => {
-            navLinks.classList.toggle('hidden');
-        });
-        function handleResize() {
-            if (window.innerWidth >= 640) {
-                navLinks.classList.remove('hidden');
-            } else {
-                navLinks.classList.add('hidden');
-            }
-        }
-        window.addEventListener('resize', handleResize);
-        handleResize();
-
-        // Dark mode logic
-        function setDarkMode(enabled, persist = true) {
-            document.documentElement.classList.toggle('dark', enabled);
-            document.body.classList.toggle('dark:bg-gray-900', enabled);
-            if (persist) localStorage.setItem('darkmode', enabled ? '1' : '0');
-            document.getElementById('dark-label').textContent = enabled ? 'Light' : 'Dark';
-            document.getElementById('dark-icon').textContent = enabled ? 'light_mode' : 'dark_mode';
-        }
-        function getDarkPref() {
-            const stored = localStorage.getItem('darkmode');
-            if (stored !== null) return stored === '1';
-            return window.matchMedia('(prefers-color-scheme: dark)').matches;
-        }
-        document.getElementById('dark-toggle').onclick = function() {
-            setDarkMode(!document.documentElement.classList.contains('dark'));
-        };
-        setDarkMode(getDarkPref(), false);
-    </script>
+<script>
+    // Dark mode toggle
+    document.getElementById('dark-toggle').addEventListener('click', () => {
+        const isDark = document.body.classList.toggle('dark');
+        localStorage.setItem('dark-mode', isDark);
+        document.getElementById('dark-label').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+    });
+    
+    // Apply saved dark mode preference
+    if (localStorage.getItem('dark-mode') === 'true' || (!localStorage.getItem('dark-mode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.body.classList.add('dark');
+        document.getElementById('dark-label').textContent = '☀️ Light';
+    }
+</script>
 </body>
 </html>

@@ -1,316 +1,322 @@
-
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Auto-Rename</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Poppins:wght@500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Poppins', sans-serif; }
+        .font-serif { font-family: 'Instrument Serif', serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        body.dark { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); color: #111827; }
+        
+        .gradient-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+        .glass { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        .nav-link { position: relative; transition: all 0.3s ease; }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after { width: 100%; }
+        
+        .section-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.875rem;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .form-input, .form-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .form-input:focus, .form-select:focus {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+            outline: none;
+        }
+        .form-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+        
+        .form-checkbox {
+            accent-color: #6366f1;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 20px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(107, 114, 128, 0.3);
+            border: 1px solid rgba(107, 114, 128, 0.5);
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background: rgba(107, 114, 128, 0.5);
+        }
+        
+        .settings-group {
+            background: rgba(99, 102, 241, 0.05);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            transition: all 0.3s ease;
+        }
+        .settings-group:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+        
+        body.dark .glass { background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(99, 102, 241, 0.2); }
+        body.dark .form-input, body.dark .form-select {
+            background: rgba(99, 102, 241, 0.05);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            color: #1f2937;
+        }
+        body.dark .form-input:focus, body.dark .form-select:focus {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+        }
+        body.dark .form-input::placeholder { color: rgba(99, 102, 241, 0.6); }
+        body.dark .text-gray-50 { color: #111827; }
+        body.dark .text-gray-100 { color: #1f2937; }
+        body.dark .text-gray-300 { color: #6b7280; }
+        body.dark .text-gray-400 { color: #9ca3af; }
+    </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-10">
-<nav class="mb-8 bg-white dark:bg-gray-800 p-2 sm:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <button id="nav-toggle" class="sm:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
-                <span class="material-icons text-2xl text-blue-700 dark:text-blue-300">menu</span>
+<body class="min-h-screen text-gray-50">
+<!-- Navigation -->
+<nav class="glass sticky top-0 z-50 border-b">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <div class="gradient-primary w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white shadow-lg">
+                    ↻
+                </div>
+                <span class="font-serif text-2xl font-bold text-white">Auto-Rename</span>
+            </div>
+            <button id="dark-toggle" class="px-4 py-2 rounded-lg glass text-gray-100 font-medium text-sm hover:bg-white/10 transition">
+                <span id="dark-label">🌙 Dark</span>
             </button>
-            <span class="font-bold text-blue-700 dark:text-blue-300 text-lg sm:hidden">Menu</span>
         </div>
-        <button id="dark-toggle" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center gap-2">
-            <span class="material-icons" id="dark-icon">dark_mode</span>
-            <span id="dark-label">Dark</span>
-        </button>
-    </div>
-    <div id="nav-links" class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mt-2 sm:mt-0">
-        <a href="/" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">home</span>
-            Home
-        </a>
-        <a href="/records" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">list_alt</span>
-            Records
-        </a>
-        <a href="/logs" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">history</span>
-            Logs
-        </a>
-        <a href="/browse" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">folder</span>
-            Browse
-        </a>
-        <a href="/settings" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
-            <span class="material-icons text-blue-500 dark:text-blue-300">settings</span>
-            Settings
-        </a>
+        <div id="nav-links" class="flex flex-col sm:flex-row gap-2 sm:gap-6">
+            <a href="/" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📊 Dashboard</a>
+            <a href="/records" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📋 Records</a>
+            <a href="/logs" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📜 Logs</a>
+            <a href="/browse" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">📁 Browse</a>
+            <a href="/settings" class="nav-link px-3 py-2 text-gray-100 hover:text-white transition font-medium">⚙️ Settings</a>
+        </div>
     </div>
 </nav>
 
-<div class="max-w-4xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
-    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">⚙️ Settings</h1>
+<!-- Main Content -->
+<div class="max-w-4xl mx-auto px-6 py-12">
+    <div class="mb-8">
+        <h1 class="section-title mb-2">Settings</h1>
+        <p class="text-gray-300 font-medium">Configure application behavior and preferences</p>
+    </div>
 
-    <div id="alert-container"></div>
+    <div id="alert-container" class="mb-6"></div>
 
     <form id="settings-form" class="space-y-6">
-        <!-- Directory Path -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">folder_open</span>
-                Directory Path
-            </label>
-            <input type="text" id="dir" name="dir" 
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="/path/to/directory"
-            />
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">The directory to scan and rename files in</p>
+        <!-- Paths Section -->
+        <div class="glass rounded-xl p-6 border border-white/10">
+            <h3 class="font-serif text-lg font-bold text-white mb-4 flex items-center gap-2">
+                📁 File Paths
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Directory Path</label>
+                    <input type="text" id="dir" name="dir" placeholder="/path/to/directory" class="w-full px-4 py-2 form-input rounded-lg">
+                    <p class="text-xs text-gray-400 mt-2">The directory to scan and rename files in</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Database Path</label>
+                    <input type="text" id="db_path" name="db_path" placeholder="./file_renames.db" class="w-full px-4 py-2 form-input rounded-lg">
+                    <p class="text-xs text-gray-400 mt-2">SQLite database file location</p>
+                </div>
+            </div>
         </div>
 
-        <!-- Web Port -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">language</span>
-                Web Port
-            </label>
-            <input type="text" id="web_port" name="web_port"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="8080"
-            />
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Port for web interface (default: 8080)</p>
+        <!-- Server Section -->
+        <div class="glass rounded-xl p-6 border border-white/10">
+            <h3 class="font-serif text-lg font-bold text-white mb-4 flex items-center gap-2">
+                🌐 Server Configuration
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Web Port</label>
+                    <input type="text" id="web_port" name="web_port" placeholder="8080" class="w-full px-4 py-2 form-input rounded-lg">
+                    <p class="text-xs text-gray-400 mt-2">Port for web interface (default: 8080)</p>
+                </div>
+            </div>
         </div>
 
-        <!-- Database Path -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">storage</span>
-                Database Path
-            </label>
-            <input type="text" id="db_path" name="db_path"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="./file_renames.db"
-            />
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">SQLite database file path</p>
+        <!-- Cron Section -->
+        <div class="glass rounded-xl p-6 border border-white/10">
+            <h3 class="font-serif text-lg font-bold text-white mb-4 flex items-center gap-2">
+                ⏰ Cron Job Scheduling
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="cron" name="cron" class="w-5 h-5 rounded form-checkbox">
+                        <span class="text-sm font-semibold text-gray-300">Enable Cron Scheduling</span>
+                    </label>
+                    <p class="text-xs text-gray-400 mt-2 ml-8">Enable automatic file scanning at scheduled intervals</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Cron Expression</label>
+                    <input type="text" id="cron_expr" name="cron_expr" placeholder="*/30 * * * *" class="w-full px-4 py-2 form-input rounded-lg font-mono">
+                    <p class="text-xs text-gray-400 mt-2">Standard cron format: <span class="text-indigo-300">*/30 * * * *</span> = every 30 minutes</p>
+                </div>
+            </div>
         </div>
 
-        <!-- Cron Expression -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">schedule</span>
-                Cron Expression
-            </label>
-            <input type="text" id="cron_expr" name="cron_expr"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="*/30 * * * *"
-            />
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Standard cron format (e.g., */30 * * * * runs every 30 minutes)</p>
+        <!-- Formatting Section -->
+        <div class="glass rounded-xl p-6 border border-white/10">
+            <h3 class="font-serif text-lg font-bold text-white mb-4 flex items-center gap-2">
+                📊 Format Options
+            </h3>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-300 mb-2">File Size Format</label>
+                        <select id="format_size" name="format_size" class="w-full px-4 py-2 form-select rounded-lg">
+                            <option value="auto">Auto (1.5 MB, 512 KB)</option>
+                            <option value="B">Bytes</option>
+                            <option value="KB">Kilobytes</option>
+                            <option value="MB">Megabytes</option>
+                            <option value="GB">Gigabytes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-300 mb-2">Decimal Places</label>
+                        <select id="format_size_decimals" name="format_size_decimals" class="w-full px-4 py-2 form-select rounded-lg">
+                            <option value="0">0 (e.g., 2 MB)</option>
+                            <option value="1">1 (e.g., 1.5 MB)</option>
+                            <option value="2" selected>2 (e.g., 1.50 MB)</option>
+                            <option value="3">3 (e.g., 1.505 MB)</option>
+                            <option value="4">4 (e.g., 1.5050 MB)</option>
+                            <option value="5">5 (e.g., 1.50500 MB)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-300 mb-2">DateTime Format</label>
+                        <select id="format_datetime_preset" name="format_datetime_preset" class="w-full px-4 py-2 form-select rounded-lg mb-2">
+                            <option value="2006-01-02 15:04:05">YYYY-MM-DD HH:MM:SS</option>
+                            <option value="02/01/2006 15:04:05">DD/MM/YYYY HH:MM:SS</option>
+                            <option value="01/02/2006 15:04:05">MM/DD/YYYY HH:MM:SS</option>
+                            <option value="Jan 2, 2006 3:04 PM">Readable Format</option>
+                            <option value="2006-01-02T15:04:05Z">ISO 8601</option>
+                            <option value="custom">Custom Format</option>
+                        </select>
+                        <input type="text" id="format_datetime_custom" name="format_datetime" placeholder="Enter Go time layout" class="w-full px-4 py-2 form-input rounded-lg hidden font-mono text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-300 mb-2">Timezone</label>
+                        <select id="format_timezone" name="format_timezone" class="w-full px-4 py-2 form-select rounded-lg">
+                            <option value="UTC+7">UTC+7 (Bangkok/Hanoi)</option>
+                            <option value="Local">Local Time</option>
+                            <option value="UTC">UTC</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Format Size -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">straighten</span>
-                File Size Format
-            </label>
-            <select id="format_size" name="format_size"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-                <option value="auto">Auto (1.5 MB, 512 KB)</option>
-                <option value="B">Bytes</option>
-                <option value="KB">Kilobytes</option>
-                <option value="MB">Megabytes</option>
-                <option value="GB">Gigabytes</option>
-            </select>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">How to display file sizes</p>
+        <!-- Behavior Section -->
+        <div class="glass rounded-xl p-6 border border-white/10">
+            <h3 class="font-serif text-lg font-bold text-white mb-4 flex items-center gap-2">
+                ⚡ Behavior Options
+            </h3>
+            <div class="space-y-3">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="dry_run" name="dry_run" class="w-5 h-5 rounded form-checkbox">
+                    <div>
+                        <span class="text-sm font-semibold text-gray-300">Dry Run Mode</span>
+                        <p class="text-xs text-gray-400">Test without actually renaming files</p>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="web_only" name="web_only" class="w-5 h-5 rounded form-checkbox">
+                    <div>
+                        <span class="text-sm font-semibold text-gray-300">Web Only Mode</span>
+                        <p class="text-xs text-gray-400">Start web server without renaming files</p>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" id="rename_subfolder" name="rename_subfolder" class="w-5 h-5 rounded form-checkbox">
+                    <div>
+                        <span class="text-sm font-semibold text-gray-300">Rename Subfolders</span>
+                        <p class="text-xs text-gray-400">Allow renaming files in subdirectories</p>
+                    </div>
+                </label>
+            </div>
         </div>
 
-        <!-- Format Size Decimals -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">calculate</span>
-                Size Decimal Places
-            </label>
-            <select id="format_size_decimals" name="format_size_decimals"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-                <option value="0">0 (e.g., 2 MB)</option>
-                <option value="1">1 (e.g., 1.5 MB)</option>
-                <option value="2" selected>2 (e.g., 1.50 MB)</option>
-                <option value="3">3 (e.g., 1.505 MB)</option>
-                <option value="4">4 (e.g., 1.5050 MB)</option>
-                <option value="5">5 (e.g., 1.50500 MB)</option>
-            </select>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Number of decimal places in size display</p>
-        </div>
-
-        <!-- Format DateTime -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">access_time</span>
-                DateTime Format
-            </label>
-            <select id="format_datetime_preset" name="format_datetime_preset"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-            >
-                <option value="2006-01-02 15:04:05">YYYY-MM-DD HH:MM:SS (2006-01-02 15:04:05)</option>
-                <option value="02/01/2006 15:04:05">DD/MM/YYYY HH:MM:SS (02/01/2006 15:04:05)</option>
-                <option value="01/02/2006 15:04:05">MM/DD/YYYY HH:MM:SS (01/02/2006 15:04:05)</option>
-                <option value="Jan 2, 2006 3:04 PM">Readable (Jan 2, 2006 3:04 PM)</option>
-                <option value="2006-01-02T15:04:05Z">ISO 8601 (2006-01-02T15:04:05Z)</option>
-                <option value="custom">Custom Format</option>
-            </select>
-            <input type="text" id="format_datetime_custom" name="format_datetime"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hidden"
-                placeholder="Enter Go time format (e.g., 2006-01-02 15:04:05)"
-            />
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                <span id="format_hint">Format applied to all timestamps</span>
-                <span id="format_custom_hint" class="hidden">Use Go time layout format. See <a href="https://golang.org/pkg/time/#pkg-constants" target="_blank" class="text-blue-500 hover:underline">Go time format reference</a></span>
-            </p>
-        </div>
-
-        <!-- Format Timezone -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                <span class="material-icons inline align-middle">public</span>
-                Timezone
-            </label>
-            <select id="format_timezone" name="format_timezone"
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-                <option value="UTC+7">UTC+7 (Bangkok/Hanoi - Default)</option>
-                <option value="Local">Local Time</option>
-                <option value="UTC">UTC</option>
-            </select>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Timezone for timestamp display</p>
-        </div>
-
-        <!-- Cron Enabled Toggle -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="flex items-center gap-3">
-                <input type="checkbox" id="cron" name="cron"
-                    class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
-                />
-                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <span class="material-icons inline align-middle text-lg">schedule</span>
-                    Enable Cron Scheduling
-                </span>
-            </label>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-8">Enable or disable automatic file scanning</p>
-        </div>
-
-        <!-- Web Only Toggle -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="flex items-center gap-3">
-                <input type="checkbox" id="web_only" name="web_only"
-                    class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
-                />
-                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <span class="material-icons inline align-middle text-lg">language</span>
-                    Web Only Mode
-                </span>
-            </label>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-8">Start web server without renaming files</p>
-        </div>
-
-        <!-- Rename Subfolder Toggle -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="flex items-center gap-3">
-                <input type="checkbox" id="rename_subfolder" name="rename_subfolder"
-                    class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
-                />
-                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <span class="material-icons inline align-middle text-lg">folder_special</span>
-                    Rename Subfolders
-                </span>
-            </label>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-8">Allow renaming files in subdirectories</p>
-        </div>
-
-        <!-- Dry Run Toggle -->
-        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-            <label class="flex items-center gap-3">
-                <input type="checkbox" id="dry_run" name="dry_run"
-                    class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
-                />
-                <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <span class="material-icons inline align-middle text-lg">visibility</span>
-                    Dry Run Mode
-                </span>
-            </label>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-8">Test without actually renaming files</p>
-        </div>
-
-        <!-- Save Button -->
-        <div class="flex gap-3 pt-4">
-            <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center gap-2">
-                <span class="material-icons">save</span>
-                Save Settings
+        <!-- Action Buttons -->
+        <div class="flex gap-3 pt-2">
+            <button type="submit" class="btn-primary px-8 py-2 text-white rounded-lg font-medium transition flex items-center gap-2">
+                💾 Save Settings
             </button>
-            <button type="button" id="reset-btn" class="px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white font-semibold rounded-lg transition flex items-center gap-2">
-                <span class="material-icons">refresh</span>
-                Reset
+            <button type="button" id="reset-btn" class="btn-secondary px-8 py-2 text-gray-200 rounded-lg font-medium transition flex items-center gap-2">
+                ↻ Reset
             </button>
         </div>
     </form>
 
     <!-- Current Settings Info -->
-    <div class="mt-8 bg-blue-50 dark:bg-gray-700 border border-blue-200 dark:border-gray-600 rounded-lg p-4">
-        <h3 class="font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
-            <span class="material-icons">info</span>
-            Current Settings
-        </h3>
-        <div id="current-settings" class="text-sm text-gray-700 dark:text-gray-300 space-y-2">
-            <p>Loading current settings...</p>
+    <div class="glass rounded-xl p-6 border border-white/10 mt-8">
+        <h3 class="font-serif text-lg font-bold text-white mb-4">Current Configuration</h3>
+        <div id="current-settings" class="text-sm text-gray-300 space-y-2">
+            <p class="text-gray-400">Loading settings...</p>
         </div>
     </div>
 </div>
 
 <script>
 // Dark mode toggle
-function initDarkMode() {
-    const toggle = document.getElementById('dark-toggle');
-    const icon = document.getElementById('dark-icon');
-    const label = document.getElementById('dark-label');
-    const isDark = localStorage.getItem('dark-mode') === 'true';
-    
-    function applyMode(dark) {
-        if (dark) {
-            document.documentElement.classList.add('dark');
-            icon.textContent = 'light_mode';
-            label.textContent = 'Light';
-        } else {
-            document.documentElement.classList.remove('dark');
-            icon.textContent = 'dark_mode';
-            label.textContent = 'Dark';
-        }
-        localStorage.setItem('dark-mode', dark);
-    }
-    
-    applyMode(isDark);
-    toggle.addEventListener('click', () => applyMode(!document.documentElement.classList.contains('dark')));
-}
-
-// Mobile nav toggle
-document.getElementById('nav-toggle')?.addEventListener('click', function() {
-    const links = document.getElementById('nav-links');
-    links.classList.toggle('hidden');
+document.getElementById('dark-toggle').addEventListener('click', () => {
+    const isDark = document.body.classList.toggle('dark');
+    localStorage.setItem('dark-mode', isDark);
+    document.getElementById('dark-label').textContent = isDark ? '☀️ Light' : '🌙 Dark';
 });
+
+// Apply saved dark mode preference
+if (localStorage.getItem('dark-mode') === 'true' || (!localStorage.getItem('dark-mode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.body.classList.add('dark');
+    document.getElementById('dark-label').textContent = '☀️ Light';
+}
 
 // Handle datetime format preset changes
 document.getElementById('format_datetime_preset').addEventListener('change', function() {
     const custom = document.getElementById('format_datetime_custom');
-    const preset = document.getElementById('format_datetime_preset');
-    const hint = document.getElementById('format_hint');
-    const customHint = document.getElementById('format_custom_hint');
-    
     if (this.value === 'custom') {
         custom.classList.remove('hidden');
-        hint.classList.add('hidden');
-        customHint.classList.remove('hidden');
     } else {
         custom.classList.add('hidden');
         custom.value = this.value;
-        hint.classList.remove('hidden');
-        customHint.classList.add('hidden');
     }
 });
 
@@ -341,8 +347,6 @@ async function loadSettings() {
             preset.value = 'custom';
             document.getElementById('format_datetime_custom').value = fmt;
             document.getElementById('format_datetime_custom').classList.remove('hidden');
-            document.getElementById('format_hint').classList.add('hidden');
-            document.getElementById('format_custom_hint').classList.remove('hidden');
         }
         
         updateCurrentSettings(data);
@@ -355,25 +359,24 @@ async function loadSettings() {
 function updateCurrentSettings(data) {
     const settingsDiv = document.getElementById('current-settings');
     settingsDiv.innerHTML = `
-        <p><strong>Directory:</strong> ${data.dir || 'Not set'}</p>
-        <p><strong>Web Port:</strong> ${data.web_port || '8080'}</p>
-        <p><strong>Cron:</strong> <span class="${data.cron ? 'text-green-600 dark:text-green-400' : 'text-gray-600'}">${data.cron ? '✓ Enabled' : '✗ Disabled'}</span></p>
-        <p><strong>Size Format:</strong> ${data.format_size || 'auto'} (${data.format_size_decimals || 2} decimals)</p>
-        <p><strong>DateTime Format:</strong> ${data.format_datetime || '2006-01-02 15:04:05'}</p>
-        <p><strong>Timezone:</strong> ${data.format_timezone || 'UTC+7'}</p>
-        <p><strong>Last Updated:</strong> ${new Date(data.updated_at).toLocaleString()}</p>
+        <p><strong>Directory:</strong> <span class="text-indigo-300 font-mono">${data.dir || 'Not set'}</span></p>
+        <p><strong>Web Port:</strong> <span class="text-indigo-300">${data.web_port || '8080'}</span></p>
+        <p><strong>Cron:</strong> <span class="${data.cron ? 'text-green-400' : 'text-red-400'}">${data.cron ? '✓ Enabled' : '✗ Disabled'}</span></p>
+        <p><strong>Size Format:</strong> <span class="text-gray-400">${data.format_size || 'auto'} (${data.format_size_decimals || 2} decimals)</span></p>
+        <p><strong>DateTime Format:</strong> <span class="text-gray-400">${data.format_datetime || '2006-01-02 15:04:05'}</span></p>
+        <p><strong>Timezone:</strong> <span class="text-gray-400">${data.format_timezone || 'UTC+7'}</span></p>
+        <p><strong>Last Updated:</strong> <span class="text-gray-400">${new Date(data.updated_at).toLocaleString()}</span></p>
     `;
 }
 
 // Show alert
 function showAlert(message, type = 'info') {
     const container = document.getElementById('alert-container');
-    const bgColor = type === 'error' ? 'bg-red-100 dark:bg-red-900' : type === 'success' ? 'bg-green-100 dark:bg-green-900' : 'bg-blue-100 dark:bg-blue-900';
-    const borderColor = type === 'error' ? 'border-red-500' : type === 'success' ? 'border-green-500' : 'border-blue-500';
-    const textColor = type === 'error' ? 'text-red-800 dark:text-red-200' : type === 'success' ? 'text-green-800 dark:text-green-200' : 'text-blue-800 dark:text-blue-200';
+    const bgColor = type === 'error' ? 'bg-red-900/20 border-red-500/30' : type === 'success' ? 'bg-green-900/20 border-green-500/30' : 'bg-indigo-900/20 border-indigo-500/30';
+    const textColor = type === 'error' ? 'text-red-200' : type === 'success' ? 'text-green-200' : 'text-indigo-200';
     
     const alert = document.createElement('div');
-    alert.className = `${bgColor} ${borderColor} ${textColor} border-l-4 p-4 rounded-lg mb-4`;
+    alert.className = `glass ${bgColor} ${textColor} border px-6 py-3 rounded-lg`;
     alert.textContent = message;
     container.innerHTML = '';
     container.appendChild(alert);
@@ -385,7 +388,6 @@ function showAlert(message, type = 'info') {
 document.getElementById('settings-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Get datetime format from either preset or custom
     let datetimeFormat = document.getElementById('format_datetime_preset').value;
     if (datetimeFormat === 'custom') {
         datetimeFormat = document.getElementById('format_datetime_custom').value;
@@ -424,9 +426,9 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
         
         const data = await response.json();
         updateCurrentSettings(data);
-        showAlert('Settings saved successfully!', 'success');
+        showAlert('✓ Settings saved successfully!', 'success');
     } catch (error) {
-        showAlert('Error saving settings: ' + error.message, 'error');
+        showAlert('✗ Error saving settings: ' + error.message, 'error');
     }
 });
 
@@ -434,7 +436,6 @@ document.getElementById('settings-form').addEventListener('submit', async (e) =>
 document.getElementById('reset-btn').addEventListener('click', loadSettings);
 
 // Initialize
-initDarkMode();
 loadSettings();
 </script>
 </body>

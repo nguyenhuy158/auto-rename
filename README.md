@@ -130,22 +130,49 @@ The Dockerfile uses multi-stage builds and optimized layer ordering:
 
 ## Web Dashboard Features
 
+### Modern UI Design (Complete Refactor - Jan 2026)
+The web interface features a **premium liquid glass aesthetic** with:
+- **Dark-first design** with light mode toggle via localStorage
+- **Glassmorphism effects** - Frosted glass cards with backdrop blur and gradient borders
+- **Custom typography** - Instrument Serif for titles, Poppins for UI, Fira Code for data
+- **Smooth animations** - 0.3s transitions, 2px hover lift, gradient shadows
+- **Responsive layout** - Desktop, tablet, mobile optimized
+- **Dual-mode support** - Dark theme (default) and light theme with full CSS color remapping
+- **Accessible color system** - Success (green), Error (red), Primary (indigo), Warning (amber)
+
 ### Dashboard Page (`/`)
-- **Statistics** - Total files, successful renames, failed operations, last 24h activity
-- **Recent Operations** - Latest 10 file renames with original name, UUID, path, size, status
-- **Cron Status** - Job monitoring with next/last run, directory, total scans, files processed
+- **Quick Stats** - 4-card layout showing total, successful, failed, and 24h activity
+- **Server Status** - Real-time server time and cron job monitoring
+- **Recent Operations** - Live table of latest file renames with status badges
+- **Quick Actions** - Scan trigger, records, API access buttons
 - **Server-Side Rendering** - Complete HTML on first load, no loading spinners
 
 ### Records Page (`/records`)
-- **Search** - By original filename or UUID
-- **Filters** - Status (success/failed), date range (from/to)
+- **Advanced Search** - By original filename or UUID with live filtering
+- **Smart Filters** - Status (success/failed), date range selection
 - **Pagination** - 20 records per page with navigation
-- **Columns** - ID, Original Name, New UUID, File Path, Size, Status, Timestamp, Error Message
+- **Responsive Table** - ID, Original Name, New UUID, File Path, Size, Status, Timestamp
+- **Status Badges** - Visual success/error indicators with color-coded styling
+
+### Settings Page (`/settings`)
+- **Organized Sections** - File Paths, Server, Cron, Formatting, Behavior
+- **Real-time Updates** - Settings persist immediately, live configuration
+- **Current Config Display** - Shows active settings with last update timestamp
+- **Custom DateTime Formats** - Presets + custom Go time layout support
+- **Behavior Toggles** - Dry-run, Web-only, Subfolder renaming options
 
 ### Logs Page (`/logs`)
-- **Chronological History** - 50 operations per page
-- **Search & Filter** - By filename/UUID and status
-- **Complete Details** - All operation metadata visible
+- **Chronological History** - Full operation timeline with pagination
+- **Advanced Filtering** - By filename/UUID and status
+- **Complete Metadata** - All operation details visible and searchable
+- **Glassmorphism UI** - Matches dashboard styling with dark/light mode toggle
+- **Template Functions** - Complete math functions for pagination (div, ceil, etc.)
+
+### Browse Page (`/browse`)
+- **Directory Navigation** - Browse filesystem with breadcrumb trails
+- **File Metadata** - Size, modification date, file type indicators
+- **Media Preview** - Click images/videos to view (refactored with liquid glass design)
+- **Responsive Design** - Works seamlessly on all devices
 
 ---
 
@@ -507,6 +534,35 @@ auto-rename/
 
 ---
 
+## UI Design System
+
+### Typography
+- **Serif** - Instrument Serif (display headings, section titles)
+- **Sans** - Poppins (UI elements, body text)
+- **Mono** - Fira Code (data, file paths, UUIDs)
+
+### Color Palette
+- **Primary** - Indigo (#6366f1) with Purple accent (#8b5cf6)
+- **Success** - Emerald (#10b981)
+- **Error** - Red (#ef4444)
+- **Warning** - Amber (#f59e0b)
+- **Background** - Deep slate gradient (#0f172a → #1e293b)
+
+### Visual Effects
+- **Glassmorphism** - Frosted glass cards with backdrop blur
+- **Gradients** - Smooth 135° diagonal gradients on interactive elements
+- **Shadows** - Soft, colored shadows on hover (12px blur)
+- **Animations** - 0.3s cubic-ease transitions, 2px hover lift effect
+
+### Component Patterns
+- **Stat Cards** - Gradient background, hover elevation, emoji indicators
+- **Badges** - Colored text with low-opacity backgrounds
+- **Forms** - Minimal, glass-style inputs with indigo focus states
+- **Tables** - Dark theme with alternating transparency on rows
+- **Buttons** - Gradient primary, ghost secondary with hover effects
+
+---
+
 ## License
 
 MIT License - See LICENSE file for details
@@ -519,4 +575,7 @@ MIT License - See LICENSE file for details
 ✅ All features tested and working  
 ✅ Docker image optimized and cached  
 ✅ Full backward API compatibility  
+✅ Dark/Light mode toggle on all pages  
+✅ Liquid glass UI design system complete  
+✅ Browse page refactored with glassmorphism  
 ✅ Ready for deployment
