@@ -4,20 +4,17 @@ FROM golang:1.21-alpine AS builder
 # Install build dependencies for SQLite
 RUN apk add --no-cache gcc musl-dev sqlite-dev
 
-# Set working directory
 WORKDIR /app
 
-# Copy go mod files
+# Copy go mod files only (for better caching)
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download dependencies - this layer is cached as long as go.mod/go.sum don't change
 RUN go mod download
 
 # Copy source code
 COPY cmd ./cmd
 COPY internal ./internal
-COPY template ./template
-COPY static ./static
 
 # Build the application with CGO enabled for SQLite
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o auto-rename ./cmd/auto-rename
@@ -25,19 +22,19 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o auto-rename ./cmd
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates and sqlite for runtime
-RUN apk --no-cache add ca-certificates sqlite
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates sqlite
 
-WORKDIR /app/
+WORKDIR /app
 
 # Copy the binary from builder stage
 COPY --from=builder /app/auto-rename .
 
-RUN mkdir -p /app/template ./static
-COPY --from=builder /app/template ./template
-COPY --from=builder /app/static ./static
+# Copy static assets
+COPY template ./template
+COPY static ./static
 
-# Create directories for files to be renamed and database
+# Create required directories
 RUN mkdir -p /app/files /app/data
 
 # Make the binary executable
