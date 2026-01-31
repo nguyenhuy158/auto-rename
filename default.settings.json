@@ -1,0 +1,15 @@
+{
+    "dir": "/app/data",
+    "dry_run": false,
+    "web_port": "8080",
+    "web_only": true,
+    "db_path": "/app/data/renames.db",
+    "cron": true,
+    "cron_expr": "*/30 * * * *",
+    "rename_subfolder": true,
+    "format_size": "auto",
+    "format_datetime": "2006-01-02 15:04:05",
+    "format_timezone": "UTC+7",
+    "format_size_decimals": 2,
+    "updated_at": "2026-01-31T16:00:00Z"
+}
