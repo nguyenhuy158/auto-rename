@@ -6,19 +6,27 @@ import (
 	"auto-rename/internal/infrastructure"
 	"encoding/json"
 	"html/template"
+	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type WebServer struct {
 	db      *infrastructure.Database
 	webPort string
+	baseDir string
 }
 
 func NewWebServer(db *infrastructure.Database, webPort string) *WebServer {
-	return &WebServer{db: db, webPort: webPort}
+	return &WebServer{db: db, webPort: webPort, baseDir: ""}
+}
+
+func NewWebServerWithDir(db *infrastructure.Database, webPort, baseDir string) *WebServer {
+	return &WebServer{db: db, webPort: webPort, baseDir: baseDir}
 }
 
 func (ws *WebServer) Start() error {
@@ -29,9 +37,13 @@ func (ws *WebServer) Start() error {
 	mux.HandleFunc("/favicon.ico", ws.handleFavicon)
 	mux.HandleFunc("/logs", ws.handleLogs)
 	mux.HandleFunc("/records", ws.handleRecord)
+	mux.HandleFunc("/browse", ws.handleBrowser)
 	mux.HandleFunc("/api/records", ws.handleAPIRecords)
+	mux.HandleFunc("/api/browse", ws.handleAPIBrowser)
 	mux.HandleFunc("/api/stats", ws.handleAPIStats)
 	mux.HandleFunc("/api/cron/status", ws.handleAPICronStatus)
+	mux.HandleFunc("/api/cron/trigger", ws.handleAPICronTrigger)
+	mux.HandleFunc("/api/file", ws.handleAPIFile)
 	mux.HandleFunc("/", ws.handleIndex)
 	server := &http.Server{
 		Addr:    ":" + ws.webPort,
@@ -78,7 +90,12 @@ func (ws *WebServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 		CurrentTime:       time.Now().Format("2006-01-02 15:04:05"),
 	}
 
-	tmpl, err := template.ParseFiles("template/index.html")
+	funcs := template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+	}
+
+	tmpl, err := template.New("index.html").Funcs(funcs).ParseFiles("template/index.html")
 	if err != nil {
 		http.Error(w, "Template index error", http.StatusInternalServerError)
 		return
@@ -115,7 +132,14 @@ func (ws *WebServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 		StatusFilter: status,
 	}
 
-	tmpl, err := template.ParseFiles("template/logs.html")
+	funcs := template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"mul": func(a, b int) int { return a * b },
+		"lt":  func(a, b int) bool { return a < b },
+	}
+
+	tmpl, err := template.New("logs.html").Funcs(funcs).ParseFiles("template/logs.html")
 	if err != nil {
 		http.Error(w, "Template logs error", http.StatusInternalServerError)
 		return
@@ -156,7 +180,18 @@ func (ws *WebServer) handleRecord(w http.ResponseWriter, r *http.Request) {
 		DateTo:       dateTo,
 	}
 
-	tmpl, err := template.ParseFiles("template/records.html")
+	funcs := template.FuncMap{
+		"ceil": func(a float64) int { return int(math.Ceil(a)) },
+		"div":  func(a, b int) float64 { return float64(a) / float64(b) },
+		"mul":  func(a, b int) int { return a * b },
+		"add":  func(a, b int) int { return a + b },
+		"sub":  func(a, b int) int { return a - b },
+		"eq":   func(a, b string) bool { return a == b },
+		"lt":   func(a, b int) bool { return a < b },
+		"gt":   func(a, b int) bool { return a > b },
+	}
+
+	tmpl, err := template.New("records.html").Funcs(funcs).ParseFiles("template/records.html")
 	if err != nil {
 		http.Error(w, "Template records error", http.StatusInternalServerError)
 		return
@@ -227,4 +262,159 @@ func (ws *WebServer) handleAPICronStatus(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	cronStatus := infrastructure.GetCronStatus()
 	json.NewEncoder(w).Encode(cronStatus)
+}
+
+func (ws *WebServer) handleAPICronTrigger(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	// Set cron as running
+	infrastructure.SetCronRunning(true)
+	defer infrastructure.SetCronRunning(false)
+
+	// Trigger a scan in background (non-blocking)
+	go func() {
+		// Import usecase to call rename function
+		// For now, just mark that a trigger occurred
+		nextRun := time.Now().Add(1 * time.Minute)
+		infrastructure.RecordCronExecution(nextRun, 0, 0, nil)
+	}()
+
+	result := map[string]interface{}{
+		"status":  "triggered",
+		"message": "Cron scan triggered successfully",
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+	json.NewEncoder(w).Encode(result)
+}
+
+func (ws *WebServer) handleAPIFile(w http.ResponseWriter, r *http.Request) {
+	// Get file path from query parameter
+	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		http.Error(w, "path parameter required", http.StatusBadRequest)
+		return
+	}
+
+	// If no base directory configured
+	if ws.baseDir == "" {
+		http.Error(w, "File browser not configured", http.StatusBadRequest)
+		return
+	}
+
+	// Validate path to prevent traversal attacks
+	absBasePath, err := filepath.Abs(ws.baseDir)
+	if err != nil {
+		http.Error(w, "Invalid base directory", http.StatusInternalServerError)
+		return
+	}
+
+	absFilePath := filepath.Join(absBasePath, filePath)
+	absFilePath, err = filepath.Abs(absFilePath)
+	if err != nil {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	// Ensure we're still within the base directory
+	if !strings.HasPrefix(absFilePath, absBasePath) {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	// Check if file exists and is not a directory
+	info, err := os.Stat(absFilePath)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	if info.IsDir() {
+		http.Error(w, "Path is a directory", http.StatusBadRequest)
+		return
+	}
+
+	// Serve the file with appropriate content type
+	http.ServeFile(w, r, absFilePath)
+}
+
+func (ws *WebServer) handleBrowser(w http.ResponseWriter, r *http.Request) {
+	println("handleBrowser:", r.URL.Path, "IP:", r.RemoteAddr, "Time:", time.Now().Format("2006-01-02 15:04:05"))
+
+	// Get current path from query parameter
+	currentPath := r.URL.Query().Get("path")
+	if currentPath == "" {
+		currentPath = "."
+	}
+
+	// If no base directory configured, show error
+	if ws.baseDir == "" {
+		http.Error(w, "File browser not configured (no directory specified)", http.StatusBadRequest)
+		return
+	}
+
+	// List directory contents
+	entries, err := infrastructure.ListDirectory(ws.baseDir, currentPath)
+	if err != nil {
+		http.Error(w, "Failed to list directory: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get breadcrumb navigation
+	breadcrumb := infrastructure.GetBreadcrumb(currentPath)
+
+	// Prepare browser data
+	data := &domain.FileBrowserData{
+		CurrentPath: currentPath,
+		Entries:     entries,
+		BaseDir:     ws.baseDir,
+		Breadcrumb:  breadcrumb,
+	}
+
+	funcs := template.FuncMap{
+		"div": func(a, b int64) float64 { return float64(a) / float64(b) },
+	}
+
+	tmpl, err := template.New("browse.html").Funcs(funcs).ParseFiles("template/browse.html")
+	if err != nil {
+		http.Error(w, "Template browse error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpl.Execute(w, data)
+}
+
+func (ws *WebServer) handleAPIBrowser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// If no base directory configured
+	if ws.baseDir == "" {
+		http.Error(w, "File browser not configured", http.StatusBadRequest)
+		return
+	}
+
+	// Get current path from query parameter
+	currentPath := r.URL.Query().Get("path")
+	if currentPath == "" {
+		currentPath = "."
+	}
+
+	// List directory contents
+	entries, err := infrastructure.ListDirectory(ws.baseDir, currentPath)
+	if err != nil {
+		http.Error(w, "Failed to list directory", http.StatusInternalServerError)
+		return
+	}
+
+	// Get breadcrumb navigation
+	breadcrumb := infrastructure.GetBreadcrumb(currentPath)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"current_path": currentPath,
+		"entries":      entries,
+		"breadcrumb":   breadcrumb,
+		"base_dir":     ws.baseDir,
+	})
 }

@@ -61,3 +61,30 @@ type LogsPageData struct {
 	SearchQuery  string
 	StatusFilter string
 }
+
+// FileEntry represents a file or directory in the browser
+type FileEntry struct {
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	IsDir     bool   `json:"is_dir"`
+	Size      int64  `json:"size"`
+	ModTime   string `json:"mod_time"`
+	CanRename bool   `json:"can_rename"`
+	IsImage   bool   `json:"is_image"`
+	IsVideo   bool   `json:"is_video"`
+	MimeType  string `json:"mime_type"`
+}
+
+// FileBrowserData holds data for file browser page
+type FileBrowserData struct {
+	CurrentPath string
+	Entries     []FileEntry
+	BaseDir     string
+	Breadcrumb  []BreadcrumbItem
+}
+
+// BreadcrumbItem represents a part of the breadcrumb navigation
+type BreadcrumbItem struct {
+	Name string
+	Path string
+}
