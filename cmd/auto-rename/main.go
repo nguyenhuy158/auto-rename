@@ -45,7 +45,7 @@ func main() {
 	if cfg.WebPort != "" {
 		fmt.Printf("\nStarting web server on port %s...\n", cfg.WebPort)
 		fmt.Printf("View results at: http://localhost:%s\n", cfg.WebPort)
-		webServer := delivery.NewWebServer(db, cfg.WebPort)
+		webServer := delivery.NewWebServerWithDir(db, cfg.WebPort, cfg.Dir)
 		log.Fatal(webServer.Start())
 	}
 
