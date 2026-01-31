@@ -38,7 +38,7 @@ func main() {
 		if cfg.Dir == "" {
 			log.Fatalf("-cron requires -dir to be specified")
 		}
-		log.Printf("Cron mode enabled: scanning %s every 60s", cfg.Dir)
+		log.Printf("Cron mode enabled: scanning %s with expression '%s'", cfg.Dir, cfg.CronExpr)
 		go usecase.StartCronScanner(cfg, db)
 	}
 

@@ -13,6 +13,7 @@ import (
 	"auto-rename/internal/infrastructure"
 
 	"github.com/google/uuid"
+	"github.com/robfig/cron/v3"
 )
 
 // renameFiles thực hiện đổi tên file trong thư mục
@@ -183,23 +184,31 @@ func SameFileAsDB(config config.Config, name string) bool {
 	return filepath.Base(config.DbPath) == name
 }
 
-// startCronScanner launches a ticker that rescans the directory every minute.
+// StartCronScanner launches a cron job that rescans the directory based on cron expression.
 func StartCronScanner(config config.Config, db *infrastructure.Database) {
-	log.Printf("[cron] StartCronScanner initialized for dir=%s", config.Dir)
-	ticker := time.NewTicker(time.Minute)
-	for {
-		log.Printf("[cron] waiting for next tick...")
-		<-ticker.C
+	log.Printf("[cron] StartCronScanner initialized for dir=%s with cron expression=%s", config.Dir, config.CronExpr)
+	
+	c := cron.New()
+	_, err := c.AddFunc(config.CronExpr, func() {
 		log.Printf("[cron] running scan of %s", config.Dir)
-		processed, skipped, err := RenameOnlyNewFiles(config, db)
-		if err != nil {
-			log.Printf("[cron] error: %v", err)
-			log.Printf("[cron] run summary: processed=%d skipped=%d error=%v", processed, skipped, err)
+		processed, skipped, scanErr := RenameOnlyNewFiles(config, db)
+		if scanErr != nil {
+			log.Printf("[cron] error: %v", scanErr)
+			log.Printf("[cron] run summary: processed=%d skipped=%d error=%v", processed, skipped, scanErr)
 		} else {
 			log.Printf("[cron] scan complete")
 			log.Printf("[cron] run summary: processed=%d skipped=%d error=nil", processed, skipped)
 		}
+	})
+	
+	if err != nil {
+		log.Printf("[cron] failed to parse cron expression '%s': %v", config.CronExpr, err)
+		return
 	}
+	
+	c.Start()
+	log.Printf("[cron] cron scheduler started")
+	select {} // Block forever
 }
 
 // RenameOnlyNewFiles chỉ đổi tên file chưa có trong DB

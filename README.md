@@ -8,6 +8,7 @@ This project provides a comprehensive file renaming solution with:
 - 🔄 Renames files using UUID while preserving extensions
 - 📊 SQLite database to track all rename operations
 - 🌐 Web interface to view rename history and statistics
+- ⏰ Cron-based scheduling with customizable expressions
 - 🐳 Docker container support for easy deployment
 - 🧪 Dry-run mode for testing without actual changes
 
@@ -18,6 +19,10 @@ This project provides a comprehensive file renaming solution with:
 - **Database Logging**: Records all operations with file metadata, timestamps, and success/failure status
 - **Web Dashboard**: Real-time interface to view rename history, search records, and view statistics
 - **Dry Run Mode**: Preview changes without actually renaming files
+- **Cron Scheduling**: Automatically scan and rename files on a schedule using cron expressions
+  - Every minute, hourly, daily, or custom intervals
+  - Only processes files not yet renamed
+  - Skips files already in UUID format
 
 ---
 
@@ -38,16 +43,30 @@ This project uses [Tailwind CSS](https://tailwindcss.com/) for all styling. **Do
 
 ```
 auto-rename/
-├── main.go              # Main application logic
-├── database.go          # SQLite database operations
-├── webserver.go         # Web interface and API endpoints
-├── main_test.go         # Unit tests for main functionality
-├── database_test.go     # Tests for database operations
-├── go.mod              # Go module definition
-├── go.sum              # Go dependencies checksums
-├── Dockerfile          # Multi-stage Docker build
-├── docker-compose.yml   # Docker Compose with web interface
-└── README.md           # This documentation
+├── cmd/
+│   └── auto-rename/
+│       └── main.go              # Application entry point
+├── internal/
+│   ├── config/
+│   │   └── config.go            # Configuration parsing
+│   ├── delivery/
+│   │   └── webserver.go         # Web interface and API endpoints
+│   ├── domain/
+│   │   └── file.go              # Domain entities
+│   ├── infrastructure/
+│   │   ├── database.go          # SQLite database operations
+│   │   └── filesystem.go        # File system helpers
+│   └── usecase/
+│       └── rename.go            # Business logic for file renaming
+├── template/                     # HTML templates
+├── static/                       # Static assets (CSS, JS)
+├── go.mod                        # Go module definition
+├── go.sum                        # Go dependencies checksums
+├── Dockerfile                    # Multi-stage Docker build
+├── docker-compose.yml            # Docker Compose configuration
+├── .env.example                  # Example environment configuration
+├── QUICK_START.md               # Quick start guide
+└── README.md                     # This documentation
 ```
 
 ## Prerequisites
@@ -102,15 +121,26 @@ Then visit: http://localhost:8080
 ```
 
 **Continuous Monitoring (Cron Mode)**:
-Run a scan every minute to catch new files dropped into the directory:
+Run a scan using cron expressions to catch new files dropped into the directory:
 ```bash
-./auto-rename -dir=/path/to/watch -db=./renames.db -web-port=8080 -cron
+./auto-rename -dir=/path/to/watch -db=./renames.db -web-port=8080 -cron -cron-expr="*/30 * * * * *"
 ```
 The application will:
 - Perform an initial rename pass
-- Every 60 seconds scan the directory again
+- Run scans based on the cron expression schedule
 - Only rename files that have not been processed yet
 - Skip files whose names already look like UUIDs
+
+**Cron Expression Examples**:
+- `*/1 * * * *` - Every minute (default)
+- `*/5 * * * *` - Every 5 minutes
+- `*/30 * * * *` - Every 30 minutes
+- `0 * * * *` - Every hour
+- `0 0 * * *` - Daily at midnight
+- `0 */6 * * *` - Every 6 hours
+- `0 9-17 * * 1-5` - Weekdays 9 AM to 5 PM
+
+Use `-cron-expr="EXPRESSION"` flag or set `CRON_EXPR` environment variable.
 
 ## Configuration
 
@@ -131,7 +161,8 @@ You can set these environment variables directly or use a `.env` file:
 | `WEB_PORT` | Port for web interface | `8080` |
 | `WEB_ONLY` | Start web server without renaming (`true`/`false`) | `false` |
 | `DB_PATH` | SQLite database file path | `./file_renames.db` |
-| `CRON` | Continuously scan directory every minute (`true`/`false`) | `false` |
+| `CRON` | Continuously scan directory (`true`/`false`) | `false` |
+| `CRON_EXPR` | Cron expression for scan schedule | `*/1 * * * *` (every minute) |
 
 ### Using .env File
 
@@ -170,7 +201,8 @@ Then run the application without any flags:
 | `-web-port` | Port for web interface | `8080` |
 | `-web-only` | Start web server without renaming | `false` |
 | `-db` | SQLite database file path | `./file_renames.db` |
-| `-cron` | Continuously rescan directory every minute | `false` |
+| `-cron` | Continuously rescan directory | `false` |
+| `-cron-expr` | Cron expression for scan schedule | `*/1 * * * *` (every minute) |
 
 ## Docker Deployment
 

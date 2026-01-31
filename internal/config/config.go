@@ -13,12 +13,13 @@ import (
 
 // Config lưu thông tin cấu hình ứng dụng
 type Config struct {
-	Dir             string
-	DryRun          bool
-	WebPort         string
-	WebOnly         bool
-	DbPath          string
-	Cron            bool
+	Dir           string
+	DryRun        bool
+	WebPort       string
+	WebOnly       bool
+	DbPath        string
+	Cron          bool
+	CronExpr      string
 	RenameSubfolder bool
 }
 
@@ -31,6 +32,7 @@ func ParseFlags() Config {
 	envWebOnly := getBoolEnv("WEB_ONLY", false)
 	envDbPath := getEnv("DB_PATH", "./file_renames.db")
 	envCron := getBoolEnv("CRON", false)
+	envCronExpr := getEnv("CRON_EXPR", "*/1 * * * *")
 	envRenameSubfolder := getBoolEnv("RENAME_SUBFOLDER", true)
 
 	log.Printf("Reading configuration...")
@@ -40,6 +42,7 @@ func ParseFlags() Config {
 	log.Printf("envWebOnly=%v", envWebOnly)
 	log.Printf("envDbPath=%v", envDbPath)
 	log.Printf("envCron=%v", envCron)
+	log.Printf("envCronExpr=%v", envCronExpr)
 	log.Printf("envRenameSubfolder=%v", envRenameSubfolder)
 	log.Printf("Command line args: %v", os.Args)
 
@@ -49,7 +52,8 @@ func ParseFlags() Config {
 	flag.StringVar(&config.WebPort, "web-port", envWebPort, "Port for web interface (can also set WEB_PORT env var)")
 	flag.BoolVar(&config.WebOnly, "web-only", envWebOnly, "Only start web server without renaming files (can also set WEB_ONLY env var)")
 	flag.StringVar(&config.DbPath, "db", envDbPath, "SQLite database path (can also set DB_PATH env var)")
-	flag.BoolVar(&config.Cron, "cron", envCron, "Continuously scan directory every minute (can also set CRON env var)")
+	flag.BoolVar(&config.Cron, "cron", envCron, "Continuously scan directory (can also set CRON env var)")
+	flag.StringVar(&config.CronExpr, "cron-expr", envCronExpr, "Cron expression for scan schedule (can also set CRON_EXPR env var). Default: '*/1 * * * *' (every minute)")
 	flag.BoolVar(&config.RenameSubfolder, "rename-subfolder", envRenameSubfolder, "Allow renaming files in subfolders (can also set RENAME_SUBFOLDER env var)")
 	flag.Parse()
 

@@ -5,24 +5,26 @@ services:
     container_name: auto-rename
     image: auto-rename
     ports:
-      - "8080:8080"
+      - "8768:8080"
     env_file:
       - .env
     volumes:
       # Mount your local directory for files to be renamed
-      # Set FILES_PATH in .env, default to ./files if not set
       # Mount directory for persistent database storage
-      - ./data:/app/data
+      - /mnt/DATA1T/stash/data:/app/data
     environment:
-      - DATABASE_PATH=/app/renames.db
-    # Default: Start web server only (access at http://localhost:8080)
-    # command: ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
+      - CRON=true
+      - CRON_EXPR=*/30 * * * *
+      - DIR=/app/data
+      - WEB_PORT=8080
     restart: always
+    # Cron mode with web server (scans every 30 minutes)
+    command: ["-dir=/app/data", "-cron", "-cron-expr=*/30 * * * *", "-web-port=8080", "-db=/app/data/renames.db"]
 
     # Alternative commands:
-    # For renaming files and then starting web server:
-    # command: ["-dir=/app/files", "-db=/app/data/renames.db", "-web-port=8080"]
-    # For dry-run mode with web server:
-    # command: ["-dir=/app/files", "-dry-run", "-db=/app/data/renames.db", "-web-port=8080"]
-    # For renaming files only (no web server):
-    # command: ["-dir=/app/files", "-db=/app/data/renames.db"]
+    # For web-only mode (no renaming, just view history):
+    # command: ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
+    # For renaming files with cron mode (every 30 minutes):
+    # command: ["-dir=/app/files", "-cron", "-cron-expr=*/30 * * * *", "-db=/app/data/renames.db", "-web-port=8080"]
+    # For dry-run mode with cron:
+    # command: ["-dir=/app/files", "-dry-run", "-cron", "-cron-expr=*/30 * * * *", "-db=/app/data/renames.db", "-web-port=8080"]
