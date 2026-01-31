@@ -27,12 +27,24 @@ type Config struct {
 
 // parseFlags lấy config từ settings.json và CLI flags
 func ParseFlags() Config {
+	// Parse -config flag first to determine settings file path
+	var configPath string
+	flag.StringVar(&configPath, "config", "", "Path to settings.json configuration file")
+	
+	// Do a preliminary parse just to get the config flag
+	flag.Parse()
+	
 	log.Printf("Reading configuration...")
 	
+	// Use provided config path or default to settings.json
+	if configPath == "" {
+		configPath = "settings.json"
+	}
+	
 	// Try to load settings.json, fallback to default if not found
-	settings, err := LoadSettings("settings.json")
+	settings, err := LoadSettings(configPath)
 	if err != nil {
-		log.Printf("Warning loading settings.json: %v", err)
+		log.Printf("Warning loading %s: %v", configPath, err)
 		settings = GetDefaultSettings()
 	}
 
@@ -63,7 +75,6 @@ func ParseFlags() Config {
 	flag.StringVar(&config.FormatDatetime, "format-datetime", settings.FormatDatetime, "DateTime format string")
 	flag.StringVar(&config.FormatTimezone, "format-timezone", settings.FormatTimezone, "Timezone: UTC or Local")
 	flag.IntVar(&config.FormatSizeDecimals, "format-size-decimals", settings.FormatSizeDecimals, "Size decimal places: 0-5")
-	flag.Parse()
 
 	return config
 }
