@@ -35,10 +35,14 @@
             <span class="material-icons text-blue-500 dark:text-blue-300">history</span>
             Logs
         </a>
+        <a href="/browse" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">folder</span>
+            Browse
+        </a>
     </div>
 </nav>
     <div class="max-w-7xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">📋 File Rename Records</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">📋 File Rename Records (SSR)</h1>
 
         <div class="flex flex-wrap gap-2 sm:gap-3 my-6">
             <a href="/" class="inline-flex items-center gap-2 px-3 sm:px-5 py-2.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
@@ -49,34 +53,110 @@
             </a>
         </div>
 
-        <div class="my-6 flex gap-3">
-            <input type="text" id="searchInput" placeholder="Search by original filename..." class="px-4 py-2 w-80 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button onclick="searchRecords()" class="px-5 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors cursor-pointer">🔍 Search</button>
-            <button onclick="loadAllRecords()" class="px-5 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors cursor-pointer">📋 Show All</button>
+        <!-- Search and Filter Form -->
+        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
+            <form method="GET" action="/records" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Search (Original or UUID)</label>
+                        <input type="text" name="search" placeholder="Search filename or UUID..." value="{{.SearchQuery}}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Status</label>
+                        <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All</option>
+                            <option value="success" {{if eq .StatusFilter "success"}}selected{{end}}>Success Only</option>
+                            <option value="failed" {{if eq .StatusFilter "failed"}}selected{{end}}>Failed Only</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">From Date</label>
+                        <input type="datetime-local" name="dateFrom" value="{{.DateFrom}}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">To Date</label>
+                        <input type="datetime-local" name="dateTo" value="{{.DateTo}}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="px-5 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors cursor-pointer">🔍 Search</button>
+                    <a href="/records" class="px-5 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">📋 Clear Filters</a>
+                </div>
+            </form>
         </div>
 
+        <!-- Records Info -->
+        <div class="mb-4 text-gray-700 dark:text-gray-300">
+            <p class="font-semibold">
+                Showing {{len .Records}} of {{.TotalRecords}} records
+                {{if .SearchQuery}}
+                    (search: <span class="font-mono">{{.SearchQuery}}</span>)
+                {{end}}
+                {{if .StatusFilter}}
+                    (status: {{.StatusFilter}})
+                {{end}}
+            </p>
+        </div>
+
+        <!-- Records Table -->
         <div class="overflow-x-auto">
-            <table class="min-w-[400px] w-full border-collapse my-5 text-xs sm:text-base" id="recordsTable">
+            <table class="min-w-[400px] w-full border-collapse my-5 text-xs sm:text-base">
                 <thead>
-                    <tr class="bg-gray-50">
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">ID</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Original Name</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">New Name (UUID)</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">File Path</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Size</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Status</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Renamed At</th>
-                        <th class="px-3 py-3 text-left border-b border-gray-200 font-bold">Error</th>
+                    <tr class="bg-gray-50 dark:bg-gray-700">
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">ID</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Original Name</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">New Name (UUID)</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">File Path</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Size</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Status</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Renamed At</th>
+                        <th class="px-3 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Error</th>
                     </tr>
                 </thead>
-                <tbody id="recordsBody">
+                <tbody>
+                    {{if .Records}}
+                        {{range .Records}}
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100">{{.Id}}</td>
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 max-w-[200px] truncate text-gray-800 dark:text-gray-100" title="{{.OriginalName}}">{{.OriginalName}}</td>
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 max-w-[200px] truncate text-gray-800 dark:text-gray-100 font-mono text-xs" title="{{.NewName}}">{{.NewName}}</td>
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 max-w-[300px] truncate text-gray-800 dark:text-gray-100 text-sm" title="{{.FilePath}}">{{.FilePath}}</td>
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 text-right">{{.FileSize}} B</td>
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100">
+                                    {{if .Success}}
+                                        <span class="text-green-600 font-bold">✓ Success</span>
+                                    {{else}}
+                                        <span class="text-red-600 font-bold">✗ Failed</span>
+                                    {{end}}
+                                </td>
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-sm text-gray-800 dark:text-gray-100">{{.RenamedAt}}</td>
+                                <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 text-sm">{{.ErrorMsg}}</td>
+                            </tr>
+                        {{end}}
+                    {{else}}
+                        <tr>
+                            <td colspan="8" class="px-3 py-6 text-center text-gray-600 dark:text-gray-400">No records found</td>
+                        </tr>
+                    {{end}}
                 </tbody>
             </table>
-            <div class="flex justify-center items-center gap-4 my-4" id="paginationControls">
-                <button id="prevPage" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Prev</button>
-                <span id="currentPage" class="font-bold text-blue-700 dark:text-blue-300"></span>
-                <button id="nextPage" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Next</button>
-            </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="flex justify-center items-center gap-4 my-6">
+            {{if gt .CurrentPage 1}}
+                <a href="/records?page={{sub .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}{{if .StatusFilter}}&status={{.StatusFilter}}{{end}}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">← Previous</a>
+            {{else}}
+                <button class="px-4 py-2 bg-gray-300 text-white rounded cursor-not-allowed" disabled>← Previous</button>
+            {{end}}
+            
+            <span class="font-bold text-gray-700 dark:text-gray-300">Page {{.CurrentPage}} of {{ceil (div .TotalRecords .PageSize)}}</span>
+            
+            {{if lt (mul .CurrentPage .PageSize) .TotalRecords}}
+                <a href="/records?page={{add .CurrentPage 1}}{{if .SearchQuery}}&search={{.SearchQuery}}{{end}}{{if .StatusFilter}}&status={{.StatusFilter}}{{end}}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Next →</a>
+            {{else}}
+                <button class="px-4 py-2 bg-gray-300 text-white rounded cursor-not-allowed" disabled>Next →</button>
+            {{end}}
         </div>
     </div>
 
@@ -114,121 +194,6 @@
             setDarkMode(!document.documentElement.classList.contains('dark'));
         };
         setDarkMode(getDarkPref(), false);
-
-        function loadAllRecords() {
-            fetch('/api/records')
-                .then(response => response.json())
-                .then(data => displayRecords(data))
-                .catch(error => {
-                    console.error('Error loading records:', error);
-                    document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8">Error loading records</td></tr>';
-                });
-        }
-
-        function searchRecords() {
-            const query = document.getElementById('searchInput').value;
-            if (!query.trim()) {
-                loadAllRecords();
-                return;
-            }
-
-            fetch('/api/records/search?q=' + encodeURIComponent(query))
-                .then(response => response.json())
-                .then(data => displayRecords(data))
-                .catch(error => {
-                    console.error('Error searching records:', error);
-                    document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8">Error searching records</td></tr>';
-                });
-        }
-
-        function displayRecords(records) {
-            const tbody = document.getElementById('recordsBody');
-            if (!records || records.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8">No records found</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = records.map(record => {
-                const status = record.success ? '<span class="text-green-600 font-bold">✅ Success</span>' : '<span class="text-red-600 font-bold">❌ Failed</span>';
-                const errorMsg = record.error_msg || '';
-                const fileSize = record.file_size ? formatFileSize(record.file_size) : '-';
-                const d = new Date(new Date(record.renamed_at).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
-                const pad = n => n.toString().padStart(2, '0');
-                const renamedAt = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-                return `
-<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${record.id}</td>
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate text-gray-800 dark:text-gray-100" title="${record.original_name}">${record.original_name}</td>
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[200px] truncate text-gray-800 dark:text-gray-100" title="${record.new_name}">${record.new_name}</td>
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 max-w-[300px] truncate text-gray-800 dark:text-gray-100 text-sm" title="${record.file_path}">${record.file_path}</td>
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${fileSize}</td>
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${status}</td>
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-100">${renamedAt}</td>
-    <td class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100">${errorMsg}</td>
-</tr>
-                `;
-            }).join('');
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-
-        // Pagination logic
-        let currentPage = 1;
-        const pageSize = 20;
-
-        function updatePaginationControls() {
-            document.getElementById('currentPage').textContent = `Page ${currentPage}`;
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            const totalPages = Math.ceil(totalRecords / pageSize);
-            document.getElementById('nextPage').disabled = currentPage >= totalPages || totalPages === 0;
-        }
-
-        document.getElementById('prevPage').onclick = function() {
-            if (currentPage > 1) {
-                currentPage--;
-                loadAllRecords(currentPage);
-                updatePaginationControls();
-            }
-        };
-        document.getElementById('nextPage').onclick = function() {
-            currentPage++;
-            loadAllRecords(currentPage);
-            updatePaginationControls();
-        };
-
-        let totalRecords = 0;
-
-        function loadAllRecords(page = 1) {
-            fetch(`/api/records?page=${page}&pageSize=${pageSize}`)
-                .then(response => response.json())
-                .then(data => {
-                    totalRecords = data.total || 0;
-                    displayRecords(data.records || []);
-                    updatePaginationControls();
-                })
-                .catch(error => {
-                    console.error('Error loading records:', error);
-                    document.getElementById('recordsBody').innerHTML = '<tr><td colspan="8">Error loading records</td></tr>';
-                });
-        }
-
-        // Load records on page load
-        loadAllRecords(currentPage);
-        updatePaginationControls();
-
-        // Enable search on Enter key
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchRecords();
-            }
-        });
     </script>
 </body>
 </html>

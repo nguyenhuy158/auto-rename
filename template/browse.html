@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Browser</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-10">
+<nav class="mb-8 bg-white dark:bg-gray-800 p-2 sm:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <button id="nav-toggle" class="sm:hidden p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                <span class="material-icons text-2xl text-blue-700 dark:text-blue-300">menu</span>
+            </button>
+            <span class="font-bold text-blue-700 dark:text-blue-300 text-lg sm:hidden">Menu</span>
+        </div>
+        <button id="dark-toggle" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center gap-2">
+            <span class="material-icons" id="dark-icon">dark_mode</span>
+            <span id="dark-label">Dark</span>
+        </button>
+    </div>
+    <div id="nav-links" class="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 mt-2 sm:mt-0">
+        <a href="/" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">home</span>
+            Home
+        </a>
+        <a href="/records" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">list_alt</span>
+            Records
+        </a>
+        <a href="/logs" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">history</span>
+            Logs
+        </a>
+        <a href="/browse" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">folder</span>
+            Browse
+        </a>
+    </div>
+</nav>
+
+    <div class="max-w-7xl mx-auto bg-white dark:bg-gray-800 p-2 sm:p-8 rounded-lg shadow-lg">
+         <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 border-b-4 border-blue-500 pb-3 mb-6">📁 File Browser</h1>
+
+        <!-- Breadcrumb Navigation -->
+        <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center gap-2 flex-wrap">
+                {{range .Breadcrumb}}
+                    <a href="/browse?path={{.Path}}" class="text-blue-600 dark:text-blue-300 hover:underline font-semibold">
+                        {{.Name}}
+                    </a>
+                    {{if ne .Path ""}}
+                        <span class="text-gray-400">/</span>
+                    {{end}}
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Current Path Info -->
+        <div class="mb-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Base Directory: <span class="font-mono text-gray-800 dark:text-gray-100">{{.BaseDir}}</span>
+            </p>
+        </div>
+
+        <!-- Directory Listing -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full w-full border-collapse my-5">
+                <thead>
+                    <tr class="bg-gray-50 dark:bg-gray-700">
+                        <th class="px-4 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Name</th>
+                        <th class="px-4 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Type</th>
+                        <th class="px-4 py-3 text-right border-b border-gray-200 dark:border-gray-600 font-bold">Size</th>
+                        <th class="px-4 py-3 text-left border-b border-gray-200 dark:border-gray-600 font-bold">Modified</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .Entries}}
+                        {{range .Entries}}
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                                <td class="px-4 py-3 text-gray-800 dark:text-gray-100">
+                                    {{if .IsDir}}
+                                        <a href="/browse?path={{.Path}}" class="flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:underline font-semibold">
+                                            <span class="material-icons text-lg">folder</span>
+                                            {{.Name}}
+                                        </a>
+                                    {{else}}
+                                        <button type="button" class="flex items-center gap-2 text-gray-800 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-300 font-semibold transition cursor-pointer" {{if or .IsImage .IsVideo}}onclick="openPreview('{{.Path}}', '{{.IsImage}}', '{{.MimeType}}')"{{end}}>
+                                            <span class="material-icons text-lg">{{if .IsImage}}image{{else if .IsVideo}}play_circle{{else}}description{{end}}</span>
+                                            {{.Name}}
+                                        </button>
+                                    {{end}}
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">
+                                    {{if .IsDir}}
+                                        <span class="inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-semibold">Folder</span>
+                                    {{else if .IsImage}}
+                                        <span class="inline-block bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded text-xs font-semibold">Image</span>
+                                    {{else if .IsVideo}}
+                                        <span class="inline-block bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded text-xs font-semibold">Video</span>
+                                    {{else}}
+                                        <span class="inline-block bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded text-xs font-semibold">File</span>
+                                    {{end}}
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-right">
+                                    {{if .IsDir}}
+                                        -
+                                    {{else}}
+                                        {{if gt .Size 1048576}}
+                                            {{printf "%.2f" (div .Size 1048576)}} MB
+                                        {{else if gt .Size 1024}}
+                                            {{printf "%.2f" (div .Size 1024)}} KB
+                                        {{else}}
+                                            {{.Size}} B
+                                        {{end}}
+                                    {{end}}
+                                </td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">
+                                    {{.ModTime}}
+                                </td>
+                            </tr>
+                        {{end}}
+                    {{else}}
+                        <tr>
+                            <td colspan="4" class="px-4 py-6 text-center text-gray-600 dark:text-gray-400">Directory is empty</td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Info Box -->
+        <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mt-6 border-l-4 border-blue-500">
+            <p class="text-blue-800 dark:text-blue-200 text-sm">
+                <strong>Tip:</strong> Click on folder names to navigate into them. Click on image or video files to preview them. Files shown here will be eligible for renaming by the auto-rename service.
+            </p>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl max-h-[90vh] overflow-hidden flex flex-col w-full">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 id="previewTitle" class="text-xl font-bold text-gray-800 dark:text-gray-100 truncate"></h2>
+                <button type="button" onclick="closePreview()" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <span class="material-icons text-gray-600 dark:text-gray-400">close</span>
+                </button>
+            </div>
+            
+            <!-- Modal Content -->
+            <div class="flex-1 overflow-auto flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+                <img id="previewImage" src="" alt="Preview" class="max-w-full max-h-full object-contain hidden">
+                <video id="previewVideo" controls class="max-w-full max-h-full hidden">
+                    <source src="" type="">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Hamburger menu logic
+        const navToggle = document.getElementById('nav-toggle');
+        const navLinks = document.getElementById('nav-links');
+        navToggle.addEventListener('click', () => {
+            navLinks.classList.toggle('hidden');
+        });
+        function handleResize() {
+            if (window.innerWidth >= 640) {
+                navLinks.classList.remove('hidden');
+            } else {
+                navLinks.classList.add('hidden');
+            }
+        }
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        // Dark mode logic
+        function setDarkMode(enabled, persist = true) {
+            document.documentElement.classList.toggle('dark', enabled);
+            document.body.classList.toggle('dark:bg-gray-900', enabled);
+            if (persist) localStorage.setItem('darkmode', enabled ? '1' : '0');
+            document.getElementById('dark-label').textContent = enabled ? 'Light' : 'Dark';
+            document.getElementById('dark-icon').textContent = enabled ? 'light_mode' : 'dark_mode';
+        }
+        function getDarkPref() {
+            const stored = localStorage.getItem('darkmode');
+            if (stored !== null) return stored === '1';
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        document.getElementById('dark-toggle').onclick = function() {
+            setDarkMode(!document.documentElement.classList.contains('dark'));
+        };
+        setDarkMode(getDarkPref(), false);
+
+        // Preview modal logic
+        function openPreview(filePath, isImage, mimeType) {
+            const modal = document.getElementById('previewModal');
+            const title = document.getElementById('previewTitle');
+            const filename = filePath.split('/').pop();
+            title.textContent = filename;
+
+            const fileUrl = '/api/file?path=' + encodeURIComponent(filePath);
+
+            if (isImage === 'true') {
+                document.getElementById('previewImage').src = fileUrl;
+                document.getElementById('previewImage').classList.remove('hidden');
+                document.getElementById('previewVideo').classList.add('hidden');
+            } else {
+                const video = document.getElementById('previewVideo');
+                video.src = fileUrl;
+                video.type = mimeType;
+                video.classList.remove('hidden');
+                document.getElementById('previewImage').classList.add('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closePreview() {
+            const modal = document.getElementById('previewModal');
+            const video = document.getElementById('previewVideo');
+            video.pause();
+            video.src = '';
+            modal.classList.add('hidden');
+        }
+
+        // Close preview when clicking outside the modal
+        document.getElementById('previewModal').addEventListener('click', (e) => {
+            if (e.target.id === 'previewModal') {
+                closePreview();
+            }
+        });
+
+        // Close preview with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closePreview();
+            }
+        });
+    </script>
+</body>
+</html>
