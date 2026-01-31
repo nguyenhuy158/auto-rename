@@ -7,6 +7,14 @@
     <title>File Browser</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Video.js -->
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.min.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+    
+    <!-- Viewer.js for Image Gallery -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.10.5/viewer.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.10.5/viewer.min.js"></script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 p-4 sm:p-10">
 <nav class="mb-8 bg-white dark:bg-gray-800 p-2 sm:p-4 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
@@ -38,6 +46,10 @@
         <a href="/browse" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
             <span class="material-icons text-blue-500 dark:text-blue-300">folder</span>
             Browse
+        </a>
+        <a href="/settings" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition font-semibold text-blue-700 dark:text-blue-300">
+            <span class="material-icons text-blue-500 dark:text-blue-300">settings</span>
+            Settings
         </a>
     </div>
 </nav>
@@ -141,23 +153,32 @@
     </div>
 
     <!-- Preview Modal -->
-    <div id="previewModal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl max-h-[90vh] overflow-hidden flex flex-col w-full">
+    <div id="previewModal" class="hidden fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50 p-4">
+        <div class="bg-black rounded-lg shadow-2xl max-w-5xl max-h-[95vh] overflow-hidden flex flex-col w-full relative">
             <!-- Modal Header -->
-            <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 id="previewTitle" class="text-xl font-bold text-gray-800 dark:text-gray-100 truncate"></h2>
-                <button type="button" onclick="closePreview()" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                    <span class="material-icons text-gray-600 dark:text-gray-400">close</span>
-                </button>
+            <div class="flex items-center justify-between p-4 bg-gray-900 border-b border-gray-700">
+                <h2 id="previewTitle" class="text-lg font-bold text-white truncate"></h2>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="fullscreenBtn" class="p-2 rounded hover:bg-gray-800 text-gray-300 hover:text-white transition" title="Fullscreen">
+                        <span class="material-icons">fullscreen</span>
+                    </button>
+                    <button type="button" onclick="closePreview()" class="p-2 rounded hover:bg-gray-800 text-gray-300 hover:text-white transition">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
             </div>
             
             <!-- Modal Content -->
-            <div class="flex-1 overflow-auto flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+            <div class="flex-1 overflow-auto flex items-center justify-center bg-black p-4">
+                <!-- Image Viewer -->
                 <img id="previewImage" src="" alt="Preview" class="max-w-full max-h-full object-contain hidden">
-                <video id="previewVideo" controls class="max-w-full max-h-full hidden">
-                    <source src="" type="">
-                    Your browser does not support the video tag.
-                </video>
+                
+                <!-- Video Player -->
+                <div id="videoContainer" class="hidden w-full h-full flex items-center justify-center">
+                    <video id="previewVideo" class="video-js vjs-default-skin" controls playsinline>
+                        <p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a></p>
+                    </video>
+                </div>
             </div>
         </div>
     </div>
@@ -197,6 +218,10 @@
         };
         setDarkMode(getDarkPref(), false);
 
+        // Video.js player instance
+        let videoPlayer = null;
+        let imageViewer = null;
+
         // Preview modal logic
         function openPreview(filePath, isImage, mimeType) {
             const modal = document.getElementById('previewModal');
@@ -206,16 +231,101 @@
 
             const fileUrl = '/api/file?path=' + encodeURIComponent(filePath);
 
+            // Clean up previous player/viewer
+            if (videoPlayer) {
+                videoPlayer.dispose();
+                videoPlayer = null;
+            }
+            if (imageViewer) {
+                imageViewer.destroy();
+                imageViewer = null;
+            }
+
+            const previewImage = document.getElementById('previewImage');
+            const videoContainer = document.getElementById('videoContainer');
+            const previewVideo = document.getElementById('previewVideo');
+
             if (isImage === 'true') {
-                document.getElementById('previewImage').src = fileUrl;
-                document.getElementById('previewImage').classList.remove('hidden');
-                document.getElementById('previewVideo').classList.add('hidden');
+                // Setup image viewer with Viewer.js
+                previewImage.src = fileUrl;
+                previewImage.classList.remove('hidden');
+                videoContainer.classList.add('hidden');
+
+                // Initialize Viewer.js for image gallery functionality
+                setTimeout(() => {
+                    imageViewer = new Viewer(previewImage, {
+                        inline: false,
+                        viewed() {
+                            imageViewer.zoomTo(1);
+                        },
+                        toolbar: {
+                            zoomIn: true,
+                            zoomOut: true,
+                            oneToOne: true,
+                            reset: true,
+                            prev: false,
+                            play: false,
+                            next: false,
+                            rotateLeft: true,
+                            rotateRight: true,
+                            flipHorizontal: true,
+                            flipVertical: true,
+                        }
+                    });
+                }, 100);
             } else {
-                const video = document.getElementById('previewVideo');
-                video.src = fileUrl;
-                video.type = mimeType;
-                video.classList.remove('hidden');
-                document.getElementById('previewImage').classList.add('hidden');
+                // Setup video player with Video.js
+                videoContainer.classList.remove('hidden');
+                previewImage.classList.add('hidden');
+
+                // Reset video element - remove old data attributes
+                previewVideo.removeAttribute('src');
+                previewVideo.innerHTML = '<source src="" type="">';
+                
+                // Wait for next tick to ensure cleanup is complete
+                setTimeout(() => {
+                    // Check if player already exists and dispose it completely
+                    if (videojs.players['previewVideo']) {
+                        videojs('previewVideo').dispose();
+                    }
+
+                    // Setup video.js player with fresh instance
+                    videoPlayer = videojs('previewVideo', {
+                        controls: true,
+                        autoplay: false,
+                        preload: 'auto',
+                        width: '100%',
+                        height: '100%',
+                        responsive: true,
+                        fluid: true,
+                        controlBar: {
+                            children: [
+                                'playToggle',
+                                'volumePanel',
+                                'currentTimeDisplay',
+                                'timeDivider',
+                                'durationDisplay',
+                                'progressControl',
+                                'remainingTimeDisplay',
+                                'playbackRateMenuButton',
+                                'playbackRateMenuButton',
+                                'fullscreenToggle'
+                            ]
+                        }
+                    });
+
+                    // Set video source
+                    videoPlayer.src({
+                        src: fileUrl,
+                        type: mimeType || 'video/mp4'
+                    });
+
+                    videoPlayer.ready(function() {
+                        this.play().catch(() => {
+                            // Play failed, likely due to autoplay policy
+                        });
+                    });
+                }, 50);
             }
 
             modal.classList.remove('hidden');
@@ -223,11 +333,44 @@
 
         function closePreview() {
             const modal = document.getElementById('previewModal');
-            const video = document.getElementById('previewVideo');
-            video.pause();
-            video.src = '';
+            const previewVideo = document.getElementById('previewVideo');
+            
+            // Dispose video player completely
+            if (videoPlayer) {
+                videoPlayer.pause();
+                videoPlayer.dispose();
+                videoPlayer = null;
+            }
+            
+            // Also dispose any lingering Video.js instance
+            if (videojs.players['previewVideo']) {
+                videojs('previewVideo').dispose();
+            }
+
+            // Destroy image viewer
+            if (imageViewer) {
+                imageViewer.destroy();
+                imageViewer = null;
+            }
+            
+            // Reset video element
+            previewVideo.removeAttribute('src');
+            previewVideo.innerHTML = '';
+
             modal.classList.add('hidden');
         }
+
+        // Fullscreen button handler
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            const modal = document.getElementById('previewModal');
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                modal.requestFullscreen().catch(err => {
+                    console.log('Fullscreen request failed:', err);
+                });
+            }
+        });
 
         // Close preview when clicking outside the modal
         document.getElementById('previewModal').addEventListener('click', (e) => {
@@ -238,7 +381,7 @@
 
         // Close preview with Escape key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && !document.getElementById('previewModal').classList.contains('hidden')) {
                 closePreview();
             }
         });
