@@ -9,7 +9,7 @@ services:
     volumes:
       # Mount your local directory for files to be renamed
       # Mount directory for persistent database storage
-      - /mnt/DATA1T/stash/data:/app/data
+      - /mnt/DATA1T/selfhost/dockge/stacks/stash/data:/app/data
       # Mount JSON settings file
       - ./settings.json:/app/settings.json
     restart: always
