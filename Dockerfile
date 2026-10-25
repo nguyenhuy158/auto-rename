@@ -17,7 +17,7 @@ COPY internal ./internal
 RUN CGO_ENABLED=0 GOOS=linux go build -o auto-rename ./cmd/auto-rename
 
 FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates ffmpeg poppler-utils
 WORKDIR /app
 COPY --from=builder /app/auto-rename .
 COPY template ./template

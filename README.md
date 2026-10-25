@@ -10,6 +10,12 @@ Auto Rename scans a configured video folder, gives unrenamed files UUID names, f
 - D1 records the planned operation before a file move. On startup, the app reconciles interrupted operations using the files present at each path. Ambiguous operations block further changes for manual review.
 - Only extensions listed in `settings.json` are scanned. The default list contains video extensions; technical files such as `.frag`, `.m3u8`, and `.xml` are excluded. The service does not rename files on startup.
 
+## Browse, preview, and search
+
+The file browser shows JPEG thumbnails for images and videos and opens an image viewer or video player. Video formats that the browser cannot decode use temporary HLS segments produced by FFmpeg. At most two streams run at once; inactive streams and their temporary segments expire after three minutes. Streaming and thumbnails only read the source folder.
+
+Ctrl+K searches pages, active settings, file names and paths, duplicate groups, D1 records, runs, quarantine history, media metadata, and extracted PDF text. The file index stays in memory and is rebuilt after a service restart. Settings shows indexing progress and lets you refresh it. PDF text is not stored in D1. Lists support search, sorting, and pagination; the browser's search applies within the current folder.
+
 ## Storage and runtime
 
 The Go process runs on NixOS and is the only component that touches local files. A small Cloudflare Worker exposes authenticated operations to the shared D1 database named `db`. All app tables, indexes, and the migration table use the `auto_rename_` prefix. The Worker token lives in a Worker secret and the VM's ignored `.env.runtime` file; it is never sent to the browser.

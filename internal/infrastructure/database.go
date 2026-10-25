@@ -33,6 +33,17 @@ type recordStats struct {
 	Recent     int `json:"recent"`
 }
 
+type Page[T any] struct {
+	Rows  []T `json:"rows"`
+	Total int `json:"total"`
+}
+
+type SearchResults struct {
+	Records []domain.FileRecord       `json:"records"`
+	Runs    []domain.ScanRun          `json:"runs"`
+	Actions []domain.QuarantineAction `json:"actions"`
+}
+
 func NewDatabase(endpoint, token string) (*Database, error) {
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && !(parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1"))) {
@@ -141,8 +152,12 @@ func (d *Database) UpdateFileRecord(id int, status string, success bool, message
 }
 
 func (d *Database) GetRecordsByFilter(page, pageSize int, search, status, dateFrom, dateTo string) ([]domain.FileRecord, error) {
+	return d.ListRecordsByFilter(page, pageSize, search, status, dateFrom, dateTo, "id", "desc")
+}
+
+func (d *Database) ListRecordsByFilter(page, pageSize int, search, status, dateFrom, dateTo, sort, order string) ([]domain.FileRecord, error) {
 	var records []domain.FileRecord
-	err := d.call("record.list", map[string]any{"limit": pageSize, "offset": (page - 1) * pageSize, "search": search, "status": status, "dateFrom": dateFrom, "dateTo": dateTo}, &records)
+	err := d.call("record.list", map[string]any{"limit": pageSize, "offset": (page - 1) * pageSize, "search": search, "status": status, "dateFrom": dateFrom, "dateTo": dateTo, "sort": sort, "order": order}, &records)
 	return records, err
 }
 
@@ -206,6 +221,12 @@ func (d *Database) GetRecentRuns() ([]domain.ScanRun, error) {
 	return runs, err
 }
 
+func (d *Database) ListRuns(page, pageSize int, search, sort, order string) (Page[domain.ScanRun], error) {
+	var result Page[domain.ScanRun]
+	err := d.call("run.page", map[string]any{"limit": pageSize, "offset": (page - 1) * pageSize, "search": search, "sort": sort, "order": order}, &result)
+	return result, err
+}
+
 func (d *Database) CreateQuarantine(action domain.QuarantineAction) (int, error) {
 	var result struct {
 		ID int `json:"id"`
@@ -230,6 +251,18 @@ func (d *Database) GetQuarantines() ([]domain.QuarantineAction, error) {
 	var actions []domain.QuarantineAction
 	err := d.call("quarantine.list", nil, &actions)
 	return actions, err
+}
+
+func (d *Database) ListQuarantines(page, pageSize int, search, sort, order string) (Page[domain.QuarantineAction], error) {
+	var result Page[domain.QuarantineAction]
+	err := d.call("quarantine.page", map[string]any{"limit": pageSize, "offset": (page - 1) * pageSize, "search": search, "sort": sort, "order": order}, &result)
+	return result, err
+}
+
+func (d *Database) SearchAll(query string) (SearchResults, error) {
+	var result SearchResults
+	err := d.call("search.all", map[string]any{"query": query}, &result)
+	return result, err
 }
 
 func (d *Database) UpdateQuarantine(id int, status string) error {

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 func (ws *WebServer) handleSettings(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +64,17 @@ func requirePOST(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
+func pageQuery(r *http.Request, defaultSize int) (int, int) {
+	page, pageSize := 1, defaultSize
+	if value, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && value > 0 && value <= 1000000 {
+		page = value
+	}
+	if value, err := strconv.Atoi(r.URL.Query().Get("pageSize")); err == nil && value > 0 {
+		pageSize = min(value, 100)
+	}
+	return page, pageSize
+}
+
 func (ws *WebServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -95,12 +107,16 @@ func (ws *WebServer) handleRuns(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	runs, err := ws.db.GetRecentRuns()
+	page, pageSize := pageQuery(r, 20)
+	search := r.URL.Query().Get("search")
+	sortBy := r.URL.Query().Get("sort")
+	order := r.URL.Query().Get("order")
+	runs, err := ws.db.ListRuns(page, pageSize, search, sortBy, order)
 	if err != nil {
 		http.Error(w, "D1 unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	writeJSON(w, map[string]any{"current": ws.scanner.Status(), "recent": nonNil(runs)})
+	writeJSON(w, map[string]any{"current": ws.scanner.Status(), "recent": nonNil(runs.Rows), "total": runs.Total, "page": page, "pageSize": pageSize})
 }
 
 func (ws *WebServer) handleDuplicates(w http.ResponseWriter, r *http.Request) {
@@ -169,12 +185,13 @@ func (ws *WebServer) handleQuarantine(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	actions, err := ws.db.GetQuarantines()
+	page, pageSize := pageQuery(r, 20)
+	actions, err := ws.db.ListQuarantines(page, pageSize, r.URL.Query().Get("search"), r.URL.Query().Get("sort"), r.URL.Query().Get("order"))
 	if err != nil {
 		http.Error(w, "D1 unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	writeJSON(w, map[string]any{"actions": nonNil(actions)})
+	writeJSON(w, map[string]any{"actions": nonNil(actions.Rows), "total": actions.Total, "page": page, "pageSize": pageSize})
 }
 
 func (ws *WebServer) handleQuarantineRestore(w http.ResponseWriter, r *http.Request) {
