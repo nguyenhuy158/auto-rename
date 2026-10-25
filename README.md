@@ -24,7 +24,7 @@ Copy `.env.runtime.example` to `.env.runtime` and set `AUTO_RENAME_API_URL` to t
 
 Edit `settings.json` for the source directory, quarantine directory, video extensions, dry-run mode, cron, and web port. The settings page displays the active values and is read-only. The NixOS Compose file mounts the Stash video directory at `/app/data`, the repo's ignored `quarantine/` directory at `/app/quarantine`, and `settings.json` read-only. Quarantine and source must be on the same filesystem.
 
-The default video extensions are `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.m4v`, and `.wmv`. Directory symlinks are not traversed by scans. File browser paths are restricted to the configured source directory.
+Set `STASH_DATA_DIR` in an ignored `.env` file using `.env.example` as a template. The default video extensions are `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.m4v`, and `.wmv`. Directory symlinks are not traversed by scans. File browser paths are restricted to the configured source directory.
 
 ## D1 and Worker
 

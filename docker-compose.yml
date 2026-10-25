@@ -8,7 +8,7 @@ services:
     env_file:
       - .env.runtime
     volumes:
-      - /mnt/DATA1T/selfhost/dockge/stacks/stash/data:/app/data
+      - ${STASH_DATA_DIR:?Set STASH_DATA_DIR in .env}:/app/data
       - ./quarantine:/app/quarantine
       - ./settings.json:/app/settings.json:ro
     command: ["-config=/app/settings.json"]
