@@ -84,6 +84,7 @@ func (ws *WebServer) handleSearch(w http.ResponseWriter, r *http.Request) {
 			{Kind: "page", Title: "Lịch sử đổi tên", Subtitle: "Bản ghi và hoàn tác", URL: "/records"},
 			{Kind: "page", Title: "Nhật ký chạy", Subtitle: "Các lần quét", URL: "/logs"},
 			{Kind: "page", Title: "Duyệt thư mục", Subtitle: "File và ảnh/video", URL: "/browse"},
+			{Kind: "page", Title: "Cấu hình", Subtitle: "settings.json · Cài đặt đang dùng", URL: "/settings"},
 			{Kind: "setting", Title: "Thư mục nguồn", Subtitle: settings.Dir, URL: "/settings"},
 			{Kind: "setting", Title: "Thư mục cách ly", Subtitle: settings.QuarantineDir, URL: "/settings"},
 			{Kind: "setting", Title: "Định dạng video", Subtitle: strings.Join(settings.Extensions, ", "), URL: "/settings"},
