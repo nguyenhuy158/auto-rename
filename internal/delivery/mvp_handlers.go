@@ -44,6 +44,13 @@ func writeJSON(w http.ResponseWriter, value any) {
 	json.NewEncoder(w).Encode(value)
 }
 
+func nonNil[T any](items []T) []T {
+	if items == nil {
+		return []T{}
+	}
+	return items
+}
+
 func readJSON(r *http.Request, value any) error {
 	return json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(value)
 }
@@ -93,7 +100,7 @@ func (ws *WebServer) handleRuns(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "D1 unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	writeJSON(w, map[string]any{"current": ws.scanner.Status(), "recent": runs})
+	writeJSON(w, map[string]any{"current": ws.scanner.Status(), "recent": nonNil(runs)})
 }
 
 func (ws *WebServer) handleDuplicates(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +108,7 @@ func (ws *WebServer) handleDuplicates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	writeJSON(w, map[string]any{"groups": ws.scanner.DuplicateGroups()})
+	writeJSON(w, map[string]any{"groups": nonNil(ws.scanner.DuplicateGroups())})
 }
 
 func (ws *WebServer) handleDuplicateScan(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +174,7 @@ func (ws *WebServer) handleQuarantine(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "D1 unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	writeJSON(w, map[string]any{"actions": actions})
+	writeJSON(w, map[string]any{"actions": nonNil(actions)})
 }
 
 func (ws *WebServer) handleQuarantineRestore(w http.ResponseWriter, r *http.Request) {
