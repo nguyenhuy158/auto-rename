@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArchiveRestore, Check, ChevronLeft, ChevronRight, Clock3, Files, Folder, FolderOpen, LayoutDashboard, ListFilter, Moon, Play, RefreshCw, Search, Settings, ShieldCheck, Sun, Trash2 } from "lucide-react";
+import { Activity, ArchiveRestore, Check, ChevronLeft, ChevronRight, Clock3, Ellipsis, Files, Folder, FolderOpen, LayoutDashboard, ListFilter, Moon, Play, RefreshCw, Search, Settings, ShieldCheck, Sun, Trash2, X } from "lucide-react";
 import { api, unwrap } from "./api";
 import { Badge, Button, Card, Metric } from "./ui";
 import type { components } from "./generated/api";
@@ -21,6 +21,7 @@ const navigation = [
   { path: "/browse", label: "Duyệt thư mục", icon: FolderOpen },
   { path: "/settings", label: "Cấu hình", icon: Settings },
 ];
+const mobileNavigation = [navigation[0], navigation[1], navigation[4], navigation[2]];
 
 const number = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
 const size = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
@@ -47,6 +48,7 @@ export function App() {
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const refresh = useCallback(() => setRevision(value => value + 1), []);
   const loadRun = useCallback(() => api.GET("/api/cron/status").then(({ data }) => data && setRun(data)).catch(() => {}), []);
@@ -67,7 +69,8 @@ export function App() {
     <aside className="sidebar">
       <a className="brand" href="/" onClick={event => { event.preventDefault(); navigate("/"); }}><span className="brand-icon"><Files size={21} /></span><span><strong>Auto Rename</strong><small>File operations</small></span></a>
       <p className="sidebar-label">KHÔNG GIAN LÀM VIỆC</p>
-      <nav aria-label="Điều hướng chính">{navigation.map(item => <a key={item.path} href={item.path} className={path === item.path ? "nav-link active" : "nav-link"} onClick={event => { event.preventDefault(); navigate(item.path); }}><item.icon size={18} /><span>{item.label}</span></a>)}</nav>
+      <nav className="desktop-nav" aria-label="Điều hướng chính">{navigation.map(item => <a key={item.path} href={item.path} className={path === item.path ? "nav-link active" : "nav-link"} onClick={event => { event.preventDefault(); navigate(item.path); }}><item.icon size={18} /><span>{item.label}</span></a>)}</nav>
+      <nav className="mobile-nav" aria-label="Điều hướng mobile">{mobileNavigation.map(item => <a key={item.path} href={item.path} className={path === item.path ? "nav-link active" : "nav-link"} onClick={event => { event.preventDefault(); setMoreOpen(false); navigate(item.path); }} aria-label={item.label}><item.icon size={20} /><span>{item.path === "/" ? "Tổng quan" : item.path === "/browse" ? "File" : item.path === "/records" ? "Lịch sử" : "Trùng lặp"}</span></a>)}<button className={moreOpen || path === "/logs" || path === "/settings" ? "nav-link active" : "nav-link"} onClick={() => setMoreOpen(value => !value)} aria-label="Thêm mục" aria-expanded={moreOpen}><Ellipsis size={20} /><span>Thêm</span></button></nav>
       <div className="sidebar-bottom"><div className="flex items-center gap-2"><ShieldCheck size={17} className="text-success-text" /><span className="text-sm font-medium">Không gian an toàn</span></div><p className="mt-2 text-xs leading-relaxed text-fg-muted">File trùng được chuyển vào cách ly và có thể khôi phục.</p></div>
     </aside>
     <div className="main-wrap">
@@ -81,6 +84,7 @@ export function App() {
         {path === "/settings" && <SettingsPage settings={settings} />}
       </main>
     </div>
+    {moreOpen && <div className="mobile-menu-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setMoreOpen(false); }}><div role="dialog" aria-modal="true" aria-label="Điều hướng thêm" className="mobile-menu-panel"><div className="flex items-center justify-between"><strong>Thêm</strong><Button variant="ghost" size="sm" aria-label="Đóng menu" onClick={() => setMoreOpen(false)}><X size={20} /></Button></div>{navigation.filter(item => item.path === "/logs" || item.path === "/settings").map(item => <a key={item.path} href={item.path} className="mobile-menu-link" onClick={event => { event.preventDefault(); setMoreOpen(false); navigate(item.path); }}><item.icon size={20} /><span>{item.label}</span><ChevronRight size={16} /></a>)}</div></div>}
     {confirm && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setConfirm(null); }}><section role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="modal-panel"><div className="flex items-start gap-3"><div className="rounded-ui bg-danger-soft p-2 text-danger-text"><Trash2 size={20} /></div><div><h2 id="confirm-title" className="text-lg font-semibold">{confirm.title}</h2><p className="mt-1 text-sm text-fg-muted">{confirm.description}</p></div></div>{confirm.paths.length > 0 && <div className="mt-4"><p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">Đường dẫn sẽ xử lý ({confirm.paths.length})</p><ul className="path-list mt-2">{confirm.paths.map(item => <li key={item} title={item}>{item}</li>)}</ul></div>}<div className="mt-6 flex justify-end gap-2"><Button variant="outline" onClick={() => setConfirm(null)}>Hủy</Button><Button variant={confirm.danger ? "danger" : "primary"} disabled={busy} onClick={() => void perform(confirm.execute, "Đã gửi yêu cầu. Theo dõi tiến trình ở Tổng quan.")}>Xác nhận</Button></div></section></div>}
   </div>;
 }

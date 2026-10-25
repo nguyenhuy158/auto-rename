@@ -37,6 +37,8 @@ func (ws *WebServer) Start() error {
 	fileServer := http.FileServer(http.Dir("static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fileServer))
 	mux.Handle("/assets/", http.FileServer(http.Dir("web/dist")))
+	mux.HandleFunc("/favicon.svg", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "web/dist/favicon.svg") })
+	mux.HandleFunc("/apple-touch-icon.png", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "web/dist/apple-touch-icon.png") })
 	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "openapi.yaml") })
 	mux.HandleFunc("/favicon.ico", ws.handleFavicon)
 	mux.HandleFunc("/logs", ws.handleApp)
