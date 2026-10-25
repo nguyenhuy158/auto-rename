@@ -58,6 +58,12 @@ The React UI uses the published `ui-kit` design tokens and project-owned compone
 
 `scripts/e2e.sh` creates disposable sample files and a local D1 database, runs the Worker and Docker image, then verifies rename, duplicate detection, quarantine, restore, and startup reconciliation after simulated interrupted moves. It never mounts Stash. The script requires Docker, Go, Node, Python 3, curl, OpenSSL, and `npx`; omit `--docker` to run the Go process directly. The VM transfer still requires a separate live disconnection check against sample files on NixOS.
 
+## Pipi transfer
+
+The NixOS NFS export must allow only Pipi's Tailscale address. Place `data/` and `quarantine/` under the exported parent, and keep the export and mount on the same filesystem. The Pipi host uses one NFS mount at `/mnt/stash`; Compose binds that parent once at `/app`. Its systemd service requires the mount, while Docker does not independently restart the container before the mount is ready.
+
+On Pipi, check out this repository at `/opt/repo/auto-rename`, set `STASH_NFS_EXPORT` and the other non-secret mount values in an ignored `.env`, copy `.env.runtime` securely from the existing VM, and keep `settings.json` at `dry_run=true`, `cron=false`. Build the image with `make build`, then run `scripts/install-pipi.sh --mount-only` to install and verify the mount. Validate file operations and a temporary connection interruption with sample files on the NFS share before starting the production app. Stop the NixOS container before running `scripts/install-pipi.sh` without arguments to enable the Pipi service. Confirm the loopback UI, D1 and filesystem agree, and that the NixOS service stays stopped. The service still needs a separate approval before writing to real Stash files.
+
 ## Safety and recovery
 
 An operation can span D1 and a local filesystem, so there is no single transaction covering both. Each rename or quarantine move first records a planned operation in D1, moves the file without replacing an existing destination, then updates D1. On restart, an interrupted operation is reconciled from the source and destination paths. If both or neither path exists, the app blocks changes and requires manual review.

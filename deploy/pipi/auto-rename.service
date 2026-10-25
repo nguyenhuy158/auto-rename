@@ -1,0 +1,18 @@
+[Unit]
+Description=Auto Rename on Pipi
+Requires=docker.service mnt-stash.mount
+After=docker.service mnt-stash.mount
+BindsTo=mnt-stash.mount
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/repo/auto-rename
+ExecStartPre=/usr/bin/test -d /mnt/stash/data
+ExecStart=/usr/bin/docker compose up --no-color --abort-on-container-exit
+ExecStop=/usr/bin/docker compose down
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

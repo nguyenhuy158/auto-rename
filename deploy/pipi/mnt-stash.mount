@@ -1,0 +1,14 @@
+[Unit]
+Description=NixOS Stash files over Tailscale
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+
+[Mount]
+What=@NFS_SERVER@:@NFS_EXPORT@
+Where=/mnt/stash
+Type=nfs4
+Options=rw,hard,noatime,vers=4.2,proto=tcp,timeo=100,retrans=3
+TimeoutSec=30
+
+[Install]
+WantedBy=multi-user.target

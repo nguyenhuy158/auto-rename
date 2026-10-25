@@ -23,7 +23,7 @@ services:
       - /app/generated
       - /app/metadata
     command: ["-config=/srv/app/settings.json"]
-    restart: unless-stopped
+    restart: "no"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
       interval: 30s
