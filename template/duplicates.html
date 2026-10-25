@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Auto Rename · Điều khiển</title>
+  <style>
+    :root{font-family:Inter,system-ui,sans-serif;color:#e8edf6;background:#0d1421}body{margin:0}main{max-width:1100px;margin:auto;padding:28px 20px 70px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}h1{font-size:30px;margin:0}h2{font-size:20px;margin:0 0 16px}nav{display:flex;gap:14px}a{color:#9dc5ff}section{background:#162338;border:1px solid #2b415e;border-radius:16px;padding:22px;margin-top:22px}button{background:#317ce0;border:0;border-radius:9px;color:white;padding:10px 15px;font:inherit;cursor:pointer;margin:3px}button:disabled{opacity:.45;cursor:not-allowed}.danger{background:#a84d5c}.secondary{background:#334b69}.status{display:flex;gap:20px;flex-wrap:wrap}.metric{background:#102034;border-radius:10px;padding:13px;min-width:130px}.metric strong{display:block;font-size:20px}.muted{color:#a5b7cc}.group,.entry{border-top:1px solid #2b415e;padding:14px 0}.path{overflow-wrap:anywhere;font-family:ui-monospace,monospace;font-size:13px}label{display:block;margin:8px 0}progress{width:100%;height:12px;accent-color:#58afef}.message{min-height:24px;color:#f7d588}.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+<main>
+  <header><div><h1>Auto Rename</h1><div class="muted">Quét video, tìm trùng và khôi phục an toàn</div></div><nav><a href="/">Dashboard</a><a href="/records">Nhật ký</a><a href="/settings">Cấu hình</a></nav></header>
+  <section><h2>Tiến độ</h2><div id="mode" class="muted"></div><div class="status"><div class="metric">Trạng thái<strong id="run-status">Chưa chạy</strong></div><div class="metric">Đã xử lý<strong id="run-count">0 / 0</strong></div><div class="metric">Đã đổi tên<strong id="rename-count">0</strong></div><div class="metric">File trùng có thể cách ly<strong id="duplicate-count">0</strong></div></div><progress id="progress" value="0" max="1"></progress><p id="run-error" class="message"></p><button id="rename-scan">Chạy quét đổi tên ngay</button><button id="duplicate-scan" class="secondary">Tìm file trùng</button></section>
+  <section><div class="row"><h2>Nhóm file trùng nội dung</h2><span id="group-count" class="muted"></span></div><div class="muted">SHA-256 được tính sau khi nhóm theo kích thước. Bản cũ nhất được giữ lại; file khác chuyển vào thư mục cách ly.</div><div id="groups"></div></section>
+  <section><h2>File trong cách ly</h2><div id="quarantines"></div></section>
+  <section><h2>Hoàn tác tên gốc</h2><div id="records"></div></section>
+  <p id="message" class="message" role="status"></p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const button = (label, action, className = '') => { const element = document.createElement('button'); element.textContent = label; element.className = className; element.addEventListener('click', action); return element; };
+const text = (tag, value, className = '') => { const element = document.createElement(tag); element.textContent = value; element.className = className; return element; };
+async function request(path, options) { const response = await fetch(path, options); if (!response.ok) throw new Error(await response.text()); return response.json(); }
+async function post(path, body = {}) { return request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
+function message(error) { $('message').textContent = error instanceof Error ? error.message : String(error); }
+async function refreshStatus() {
+  try {
+    const run = await request('/api/cron/status');
+    $('run-status').textContent = run.status || 'Chưa chạy';
+    $('run-count').textContent = `${run.processed_files || 0} / ${run.total_files || 0}`;
+    $('rename-count').textContent = run.renamed_files || 0;
+    $('duplicate-count').textContent = run.duplicate_files || 0;
+    $('progress').max = Math.max(run.total_files || 1, 1);
+    $('progress').value = run.processed_files || 0;
+    $('run-error').textContent = run.error || '';
+    const busy = run.status === 'running';
+    $('rename-scan').disabled = busy;
+    $('duplicate-scan').disabled = busy;
+    if (!busy && window.lastRun === run.id) { window.lastRun = 0; await refreshData(); }
+  } catch (error) { message(error); }
+}
+async function refreshData() {
+  try {
+    const [groups, quarantine, records] = await Promise.all([request('/api/duplicates'), request('/api/quarantine'), request('/api/records?pageSize=100')]);
+    renderGroups(groups.groups || []);
+    renderQuarantine(quarantine.actions || []);
+    renderRecords(records.records || []);
+  } catch (error) { message(error); }
+}
+function renderGroups(groups) {
+  $('group-count').textContent = `${groups.length} nhóm`;
+  const list = $('groups'); list.replaceChildren();
+  if (!groups.length) { list.append(text('p', 'Chưa có kết quả. Bấm “Tìm file trùng” để quét.', 'muted')); return; }
+  for (const group of groups) {
+    const card = text('div', '', 'group');
+    card.append(text('strong', `${group.files.length} bản · ${group.size} bytes · ${group.sha256.slice(0, 16)}…`));
+    card.append(text('p', `Giữ bản cũ nhất: ${group.files[0].path}`, 'path'));
+    const selected = [];
+    for (const file of group.files.slice(1)) {
+      const label = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.value = file.path;
+      input.addEventListener('change', () => { const index = selected.indexOf(file.path); if (input.checked && index < 0) selected.push(file.path); if (!input.checked && index >= 0) selected.splice(index, 1); });
+      label.append(input, text('span', ` ${file.path}`, 'path')); card.append(label);
+    }
+    const action = async all => {
+      const paths = all ? group.files.slice(1).map(file => file.path) : selected;
+      if (!paths.length) { message('Hãy chọn file cần cách ly.'); return; }
+      const details = `Giữ: ${group.files[0].path}\n\nChuyển ${paths.length} file vào cách ly:\n${paths.join('\n')}`;
+      if (!window.confirm(details)) return;
+      try { const result = await post('/api/duplicates/quarantine', { sha256: group.sha256, paths, all, confirm: true }); window.lastRun = result.run_id; message(`Đang xử lý lượt #${result.run_id}`); refreshStatus(); }
+      catch (error) { message(error); }
+    };
+    card.append(button('Cách ly file đã chọn', () => action(false), 'danger'), button('Cách ly tất cả bản trùng', () => action(true), 'danger'));
+    list.append(card);
+  }
+}
+function renderQuarantine(actions) {
+  const list = $('quarantines'); list.replaceChildren();
+  if (!actions.length) { list.append(text('p', 'Chưa có file trong cách ly.', 'muted')); return; }
+  for (const action of actions) {
+    const row = text('div', '', 'entry'); row.append(text('div', `${action.status}: ${action.original_path}`, 'path'));
+    if (action.status === 'quarantined') row.append(button('Khôi phục file', async () => { if (!window.confirm(`Khôi phục về ${action.original_path}?`)) return; try { await post('/api/quarantine/restore', { id: action.id }); await refreshData(); } catch (error) { message(error); } }, 'secondary'));
+    list.append(row);
+  }
+}
+function renderRecords(records) {
+  const list = $('records'); list.replaceChildren();
+  if (!records.length) { list.append(text('p', 'Chưa có bản ghi đổi tên.', 'muted')); return; }
+  for (const record of records) {
+    const row = text('div', '', 'entry'); row.append(text('div', `${record.status}: ${record.file_path}/${record.original_name} → ${record.new_name}`, 'path'));
+    if (record.status === 'renamed') row.append(button('Hoàn tác tên', async () => { if (!window.confirm(`Đổi lại ${record.new_name} thành ${record.original_name}?`)) return; try { await post('/api/records/restore', { id: record.id }); await refreshData(); } catch (error) { message(error); } }, 'secondary'));
+    list.append(row);
+  }
+}
+$('rename-scan').addEventListener('click', async () => {
+  const dryRun = $('mode').dataset.dryRun === 'true';
+  if (!window.confirm(dryRun ? 'Chạy thử quét video mà không đổi tên file?' : 'Đổi tên các video chưa có UUID trong thư mục đã cấu hình?')) return;
+  try { const result = await post('/api/cron/trigger'); window.lastRun = result.run_id; message(`Đang xử lý lượt #${result.run_id}`); refreshStatus(); }
+  catch (error) { message(error); }
+});
+$('duplicate-scan').addEventListener('click', async () => {
+  try { const result = await post('/api/duplicates/scan'); window.lastRun = result.run_id; message(`Đang tìm file trùng, lượt #${result.run_id}`); refreshStatus(); }
+  catch (error) { message(error); }
+});
+request('/api/settings').then(settings => { $('mode').dataset.dryRun = String(settings.dry_run); $('mode').textContent = settings.dry_run ? 'Chế độ xem trước: không đổi tên file' : 'Chế độ áp dụng: quét sẽ đổi tên file'; }).catch(message);
+refreshStatus(); refreshData(); setInterval(refreshStatus, 2500);
+</script>
+</body>
+</html>

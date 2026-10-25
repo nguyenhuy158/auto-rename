@@ -13,6 +13,32 @@ type FileRecord struct {
 	Success      bool   `json:"success"`
 	ErrorMsg     string `json:"error_msg"`
 	RenamedAt    string `json:"renamed_at"`
+	Status       string `json:"status"`
+	RestoredAt   string `json:"restored_at"`
+}
+
+type ScanRun struct {
+	ID             int    `json:"id"`
+	Source         string `json:"source"`
+	Status         string `json:"status"`
+	StartedAt      string `json:"started_at"`
+	FinishedAt     string `json:"finished_at"`
+	TotalFiles     int    `json:"total_files"`
+	ProcessedFiles int    `json:"processed_files"`
+	RenamedFiles   int    `json:"renamed_files"`
+	DuplicateFiles int    `json:"duplicate_files"`
+	Error          string `json:"error"`
+}
+
+type QuarantineAction struct {
+	ID             int    `json:"id"`
+	OriginalPath   string `json:"original_path"`
+	QuarantinePath string `json:"quarantine_path"`
+	SHA256         string `json:"sha256"`
+	KeptPath       string `json:"kept_path"`
+	Status         string `json:"status"`
+	CreatedAt      string `json:"created_at"`
+	RestoredAt     string `json:"restored_at"`
 }
 
 // CronStatus tracks cron job execution state
@@ -91,17 +117,16 @@ type BreadcrumbItem struct {
 
 // SettingsData holds all data for settings page rendering
 type SettingsData struct {
-	Dir                 string
-	DryRun              bool
-	WebPort             string
-	WebOnly             bool
-	DbPath              string
-	Cron                bool
-	CronExpr            string
-	RenameSubfolder     bool
-	FormatSize          string
-	FormatDatetime      string
-	FormatTimezone      string
-	FormatSizeDecimals  int
-	UpdatedAt           string
+	Dir                string
+	DryRun             bool
+	WebPort            string
+	WebOnly            bool
+	Cron               bool
+	CronExpr           string
+	RenameSubfolder    bool
+	FormatSize         string
+	FormatDatetime     string
+	FormatTimezone     string
+	FormatSizeDecimals int
+	UpdatedAt          string
 }

@@ -35,7 +35,7 @@ func GetFileInfo(path string) (int64, string, string, error) {
 // DetectMediaType determines if a file is an image or video
 func DetectMediaType(filename string) (isImage, isVideo bool, mimeType string) {
 	ext := strings.ToLower(filepath.Ext(filename))
-	
+
 	if mime, ok := imageExtensions[ext]; ok {
 		return true, false, mime
 	}
@@ -47,21 +47,13 @@ func DetectMediaType(filename string) (isImage, isVideo bool, mimeType string) {
 
 // ListDirectory lists files and directories in a given path
 func ListDirectory(basePath, currentPath string) ([]domain.FileEntry, error) {
-	// Prevent path traversal attacks
-	absBasePath, err := filepath.Abs(basePath)
+	absBasePath, err := filepath.EvalSymlinks(basePath)
 	if err != nil {
 		return nil, err
 	}
-
-	absCurrentPath := filepath.Join(absBasePath, currentPath)
-	absCurrentPath, err = filepath.Abs(absCurrentPath)
+	absCurrentPath, err := ResolveWithin(absBasePath, currentPath)
 	if err != nil {
 		return nil, err
-	}
-
-	// Ensure we're still within the base directory
-	if !strings.HasPrefix(absCurrentPath, absBasePath) {
-		return nil, os.ErrPermission
 	}
 
 	entries, err := os.ReadDir(absCurrentPath)
@@ -77,9 +69,13 @@ func ListDirectory(basePath, currentPath string) ([]domain.FileEntry, error) {
 			continue
 		}
 
-		// Relative path from base directory
-		relPath := strings.TrimPrefix(absCurrentPath, absBasePath)
-		relPath = strings.TrimPrefix(relPath, string(filepath.Separator))
+		relPath, err := filepath.Rel(absBasePath, absCurrentPath)
+		if err != nil {
+			continue
+		}
+		if relPath == "." {
+			relPath = ""
+		}
 		if relPath != "" {
 			relPath = filepath.Join(relPath, entry.Name())
 		} else {
@@ -113,6 +109,22 @@ func ListDirectory(basePath, currentPath string) ([]domain.FileEntry, error) {
 	})
 
 	return fileEntries, nil
+}
+
+func ResolveWithin(basePath, relativePath string) (string, error) {
+	base, err := filepath.EvalSymlinks(basePath)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.EvalSymlinks(filepath.Join(base, relativePath))
+	if err != nil {
+		return "", err
+	}
+	relative, err := filepath.Rel(base, target)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		return "", os.ErrPermission
+	}
+	return target, nil
 }
 
 // GetBreadcrumb generates breadcrumb items for navigation

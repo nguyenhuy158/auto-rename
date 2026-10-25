@@ -151,15 +151,13 @@
         <a href="/records" class="btn-primary px-6 py-3 text-white rounded-lg font-medium text-center block">
             📋 View Records
         </a>
-        <a href="/api/records" class="glass px-6 py-3 text-gray-200 rounded-lg font-medium text-center hover:bg-white/15 transition block">
-            📊 API Data
+        <a href="/duplicates" class="glass px-6 py-3 text-gray-200 rounded-lg font-medium text-center hover:bg-white/15 transition block">
+            🔎 Scan & Duplicates
         </a>
         <a href="/api/stats" class="glass px-6 py-3 text-gray-200 rounded-lg font-medium text-center hover:bg-white/15 transition block">
             📈 Statistics
         </a>
-        <button onclick="triggerCronNow()" id="cron-trigger-btn" class="btn-success px-6 py-3 text-white rounded-lg font-medium text-center">
-            <span id="trigger-label">▶️ Scan Now</span>
-        </button>
+        <a href="/duplicates" class="btn-success px-6 py-3 text-white rounded-lg font-medium text-center block">▶️ Run Now</a>
     </div>
 
     <!-- Statistics Grid -->
@@ -293,36 +291,6 @@
             document.getElementById('dark-label').textContent = '☀️ Light';
         }
 
-        // Trigger cron scan
-        function triggerCronNow() {
-            const btn = document.getElementById('cron-trigger-btn');
-            const label = document.getElementById('trigger-label');
-            const originalLabel = label.textContent;
-            
-            btn.disabled = true;
-            label.textContent = '⏳ Scanning...';
-            
-            fetch('/api/cron/trigger', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                label.textContent = '✓ Scan triggered!';
-                setTimeout(() => {
-                    label.textContent = originalLabel;
-                    btn.disabled = false;
-                }, 2500);
-            })
-            .catch(error => {
-                label.textContent = '✗ Error';
-                console.error('Error:', error);
-                setTimeout(() => {
-                    label.textContent = originalLabel;
-                    btn.disabled = false;
-                }, 2500);
-            });
-        }
     </script>
 </body>
 </html>

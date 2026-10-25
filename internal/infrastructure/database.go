@@ -1,304 +1,243 @@
-// Database logic for auto-rename
 package infrastructure
 
 import (
-	"database/sql"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"auto-rename/internal/domain"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type Database struct {
-	db *sql.DB
+	endpoint string
+	token    string
+	client   *http.Client
 }
 
-// NewDatabase khởi tạo kết nối database
-func NewDatabase(dbPath string) (*Database, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+type rpcResponse struct {
+	Result json.RawMessage `json:"result"`
+	Error  string          `json:"error"`
+}
+
+type recordStats struct {
+	Total      int `json:"total"`
+	Successful int `json:"successful"`
+	Failed     int `json:"failed"`
+	Recent     int `json:"recent"`
+}
+
+func NewDatabase(endpoint, token string) (*Database, error) {
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && !(parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1"))) {
+		return nil, errors.New("D1 API URL must use HTTPS or local HTTP")
+	}
+	if token == "" {
+		return nil, errors.New("AUTO_RENAME_API_TOKEN is required")
+	}
+	return &Database{endpoint: strings.TrimRight(endpoint, "/") + "/rpc", token: token, client: &http.Client{Timeout: 20 * time.Second}}, nil
+}
+
+func (d *Database) call(op string, input any, output any) error {
+	body, err := json.Marshal(map[string]any{"op": op, "input": input})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	// Auto-create tables if not exist
-	createTableSQL := `
-    CREATE TABLE IF NOT EXISTS file_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        original_name TEXT,
-        new_name TEXT,
-        file_path TEXT,
-        file_size INTEGER,
-        file_mode TEXT,
-        mod_time TEXT,
-        success BOOLEAN,
-        error_msg TEXT,
-        renamed_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS settings (
-        key TEXT PRIMARY KEY,
-        value TEXT,
-        updated_at TEXT
-    );`
-	if _, err := db.Exec(createTableSQL); err != nil {
-		return nil, err
+	request, err := http.NewRequest(http.MethodPost, d.endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
 	}
-	return &Database{db: db}, nil
+	request.Header.Set("Authorization", "Bearer "+d.token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := d.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("D1 API returned HTTP %d", response.StatusCode)
+	}
+	var result rpcResponse
+	if err := json.Unmarshal(data, &result); err != nil {
+		return err
+	}
+	if result.Error != "" {
+		return errors.New(result.Error)
+	}
+	if output == nil {
+		return nil
+	}
+	if len(result.Result) == 0 || string(result.Result) == "null" {
+		return errors.New("D1 record not found")
+	}
+	return json.Unmarshal(result.Result, output)
 }
 
-// HasOriginalName kiểm tra file đã có trong DB chưa
+func (d *Database) Ping() error {
+	var result recordStats
+	return d.call("record.stats", nil, &result)
+}
+
 func (d *Database) HasOriginalName(name string) (bool, error) {
-	row := d.db.QueryRow("SELECT COUNT(*) FROM file_records WHERE original_name = ?", name)
-	var count int
-	if err := row.Scan(&count); err != nil {
-		return false, err
+	var result struct {
+		Count int `json:"count"`
 	}
-	return count > 0, nil
+	err := d.call("record.hasOriginal", map[string]any{"name": name}, &result)
+	return result.Count > 0, err
 }
 
-// InsertFileRecord thêm bản ghi file vào DB
+func (d *Database) RestoredNames() (map[string]bool, error) {
+	var rows []struct {
+		Path string `json:"file_path"`
+		Name string `json:"original_name"`
+	}
+	if err := d.call("record.restored", nil, &rows); err != nil {
+		return nil, err
+	}
+	names := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		names[filepath.Join(row.Path, row.Name)] = true
+	}
+	return names, nil
+}
+
+func (d *Database) CreateFileRecord(record domain.FileRecord) (int, error) {
+	var result struct {
+		ID int `json:"id"`
+	}
+	err := d.call("record.insert", record, &result)
+	return result.ID, err
+}
+
 func (d *Database) InsertFileRecord(record domain.FileRecord) error {
-	_, err := d.db.Exec(
-		`INSERT INTO file_records (original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		record.OriginalName, record.NewName, record.FilePath, record.FileSize, record.FileMode, record.ModTime, record.Success, record.ErrorMsg, record.RenamedAt,
-	)
+	_, err := d.CreateFileRecord(record)
 	return err
 }
 
-func (d *Database) GetAllFileRecords() ([]domain.FileRecord, error) {
-	rows, err := d.db.Query("SELECT original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at, id FROM file_records ORDER BY id DESC")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+func (d *Database) GetFileRecord(id int) (domain.FileRecord, error) {
+	var record domain.FileRecord
+	err := d.call("record.get", map[string]any{"id": id}, &record)
+	return record, err
+}
+
+func (d *Database) PendingFileRecords() ([]domain.FileRecord, error) {
 	var records []domain.FileRecord
-	for rows.Next() {
-		var r domain.FileRecord
-		err := rows.Scan(&r.OriginalName, &r.NewName, &r.FilePath, &r.FileSize, &r.FileMode, &r.ModTime, &r.Success, &r.ErrorMsg, &r.RenamedAt, &r.Id)
-		if err != nil {
-			return nil, err
-		}
-		records = append(records, r)
-	}
-	return records, nil
+	err := d.call("record.pending", nil, &records)
+	return records, err
 }
 
-func (d *Database) GetFileRecordsPage(page, pageSize int) ([]domain.FileRecord, error) {
-	offset := (page - 1) * pageSize
-	rows, err := d.db.Query(
-		"SELECT original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at, id FROM file_records ORDER BY id DESC LIMIT ? OFFSET ?",
-		pageSize, offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+func (d *Database) UpdateFileRecord(id int, status string, success bool, message, restoredAt string) error {
+	return d.call("record.update", map[string]any{"id": id, "status": status, "success": success, "error_msg": message, "restored_at": restoredAt}, nil)
+}
+
+func (d *Database) GetRecordsByFilter(page, pageSize int, search, status, dateFrom, dateTo string) ([]domain.FileRecord, error) {
 	var records []domain.FileRecord
-	for rows.Next() {
-		var r domain.FileRecord
-		err := rows.Scan(&r.OriginalName, &r.NewName, &r.FilePath, &r.FileSize, &r.FileMode, &r.ModTime, &r.Success, &r.ErrorMsg, &r.RenamedAt, &r.Id)
-		if err != nil {
-			return nil, err
-		}
-		records = append(records, r)
+	err := d.call("record.list", map[string]any{"limit": pageSize, "offset": (page - 1) * pageSize, "search": search, "status": status, "dateFrom": dateFrom, "dateTo": dateTo}, &records)
+	return records, err
+}
+
+func (d *Database) GetRecordCountByFilter(search, status, dateFrom, dateTo string) (int, error) {
+	var result struct {
+		Count int `json:"count"`
 	}
-	return records, nil
+	err := d.call("record.count", map[string]any{"search": search, "status": status, "dateFrom": dateFrom, "dateTo": dateTo}, &result)
+	return result.Count, err
 }
 
-func (d *Database) CountFileRecords() (int, error) {
-	row := d.db.QueryRow("SELECT COUNT(*) FROM file_records")
-	var count int
-	if err := row.Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-// GetTotalRecords returns total count of all records
-func (d *Database) GetTotalRecords() (int, error) {
-	return d.CountFileRecords()
-}
-
-// GetSuccessfulRenames returns count of successful rename operations
-func (d *Database) GetSuccessfulRenames() (int, error) {
-	row := d.db.QueryRow("SELECT COUNT(*) FROM file_records WHERE success = 1")
-	var count int
-	if err := row.Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-// GetFailedRenames returns count of failed rename operations
-func (d *Database) GetFailedRenames() (int, error) {
-	row := d.db.QueryRow("SELECT COUNT(*) FROM file_records WHERE success = 0")
-	var count int
-	if err := row.Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-// GetRecentActivity returns count of operations in last N hours
-func (d *Database) GetRecentActivity(hours int) (int, error) {
-	query := `SELECT COUNT(*) FROM file_records 
-	WHERE datetime(renamed_at) > datetime('now', '-' || ? || ' hours')`
-	row := d.db.QueryRow(query, hours)
-	var count int
-	if err := row.Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-// GetRecentOperations returns latest N file operations with full details
 func (d *Database) GetRecentOperations(limit int) ([]domain.FileRecord, error) {
-	rows, err := d.db.Query(
-		"SELECT id, original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at FROM file_records ORDER BY id DESC LIMIT ?",
-		limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var records []domain.FileRecord
-	for rows.Next() {
-		var r domain.FileRecord
-		err := rows.Scan(&r.Id, &r.OriginalName, &r.NewName, &r.FilePath, &r.FileSize, &r.FileMode, &r.ModTime, &r.Success, &r.ErrorMsg, &r.RenamedAt)
-		if err != nil {
-			return nil, err
-		}
-		records = append(records, r)
-	}
-	return records, nil
+	return d.GetRecordsByFilter(1, limit, "", "", "", "")
 }
 
-// GetRecordsByFilter returns paginated and filtered records for records page
-func (d *Database) GetRecordsByFilter(page, pageSize int, search, status string, dateFrom, dateTo string) ([]domain.FileRecord, error) {
-	offset := (page - 1) * pageSize
-	query := "SELECT id, original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at FROM file_records WHERE 1=1"
-	var args []interface{}
-
-	// Add search filter
-	if search != "" {
-		query += " AND (original_name LIKE ? OR new_name LIKE ?)"
-		searchParam := "%" + search + "%"
-		args = append(args, searchParam, searchParam)
-	}
-
-	// Add status filter
-	if status == "success" {
-		query += " AND success = 1"
-	} else if status == "failed" {
-		query += " AND success = 0"
-	}
-
-	// Add date range filter
-	if dateFrom != "" {
-		query += " AND datetime(renamed_at) >= datetime(?)"
-		args = append(args, dateFrom)
-	}
-	if dateTo != "" {
-		query += " AND datetime(renamed_at) <= datetime(?)"
-		args = append(args, dateTo)
-	}
-
-	query += " ORDER BY id DESC LIMIT ? OFFSET ?"
-	args = append(args, pageSize, offset)
-
-	rows, err := d.db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var records []domain.FileRecord
-	for rows.Next() {
-		var r domain.FileRecord
-		err := rows.Scan(&r.Id, &r.OriginalName, &r.NewName, &r.FilePath, &r.FileSize, &r.FileMode, &r.ModTime, &r.Success, &r.ErrorMsg, &r.RenamedAt)
-		if err != nil {
-			return nil, err
-		}
-		records = append(records, r)
-	}
-	return records, nil
+func (d *Database) stats() (recordStats, error) {
+	var result recordStats
+	err := d.call("record.stats", nil, &result)
+	return result, err
 }
 
-// GetRecordCountByFilter returns total count of records matching filters
-func (d *Database) GetRecordCountByFilter(search, status string, dateFrom, dateTo string) (int, error) {
-	query := "SELECT COUNT(*) FROM file_records WHERE 1=1"
-	var args []interface{}
-
-	if search != "" {
-		query += " AND (original_name LIKE ? OR new_name LIKE ?)"
-		searchParam := "%" + search + "%"
-		args = append(args, searchParam, searchParam)
-	}
-
-	if status == "success" {
-		query += " AND success = 1"
-	} else if status == "failed" {
-		query += " AND success = 0"
-	}
-
-	if dateFrom != "" {
-		query += " AND datetime(renamed_at) >= datetime(?)"
-		args = append(args, dateFrom)
-	}
-	if dateTo != "" {
-		query += " AND datetime(renamed_at) <= datetime(?)"
-		args = append(args, dateTo)
-	}
-
-	row := d.db.QueryRow(query, args...)
-	var count int
-	if err := row.Scan(&count); err != nil {
-		return 0, err
-	}
-	return count, nil
+func (d *Database) GetTotalRecords() (int, error) {
+	result, err := d.stats()
+	return result.Total, err
 }
 
-// SaveSetting saves a single setting key-value pair
+func (d *Database) GetSuccessfulRenames() (int, error) {
+	result, err := d.stats()
+	return result.Successful, err
+}
+
+func (d *Database) GetFailedRenames() (int, error) {
+	result, err := d.stats()
+	return result.Failed, err
+}
+
+func (d *Database) GetRecentActivity(hours int) (int, error) {
+	result, err := d.stats()
+	return result.Recent, err
+}
+
 func (d *Database) SaveSetting(key, value string) error {
-	_, err := d.db.Exec(
-		"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
-		key, value,
-	)
-	return err
+	return d.call("settings.save", map[string]any{"key": key, "value": value}, nil)
 }
 
-// GetSetting retrieves a setting value by key
-func (d *Database) GetSetting(key string) (string, error) {
-	row := d.db.QueryRow("SELECT value FROM settings WHERE key = ?", key)
-	var value string
-	if err := row.Scan(&value); err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
-		return "", err
+func (d *Database) StartRun(source string) (int, error) {
+	var result struct {
+		ID int `json:"id"`
 	}
-	return value, nil
+	err := d.call("run.start", map[string]any{"source": source, "started_at": time.Now().UTC().Format(time.RFC3339)}, &result)
+	return result.ID, err
 }
 
-// GetAllSettings retrieves all settings as a map
-func (d *Database) GetAllSettings() (map[string]string, error) {
-	rows, err := d.db.Query("SELECT key, value FROM settings")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	
-	settings := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			return nil, err
-		}
-		settings[key] = value
-	}
-	return settings, nil
+func (d *Database) UpdateRun(run domain.ScanRun) error {
+	return d.call("run.update", run, nil)
 }
 
-// Close đóng kết nối DB
-func (d *Database) Close() error {
-	return d.db.Close()
+func (d *Database) GetRecentRuns() ([]domain.ScanRun, error) {
+	var runs []domain.ScanRun
+	err := d.call("run.recent", nil, &runs)
+	return runs, err
 }
+
+func (d *Database) CreateQuarantine(action domain.QuarantineAction) (int, error) {
+	var result struct {
+		ID int `json:"id"`
+	}
+	err := d.call("quarantine.insert", action, &result)
+	return result.ID, err
+}
+
+func (d *Database) GetQuarantine(id int) (domain.QuarantineAction, error) {
+	var action domain.QuarantineAction
+	err := d.call("quarantine.get", map[string]any{"id": id}, &action)
+	return action, err
+}
+
+func (d *Database) PendingQuarantines() ([]domain.QuarantineAction, error) {
+	var actions []domain.QuarantineAction
+	err := d.call("quarantine.pending", nil, &actions)
+	return actions, err
+}
+
+func (d *Database) GetQuarantines() ([]domain.QuarantineAction, error) {
+	var actions []domain.QuarantineAction
+	err := d.call("quarantine.list", nil, &actions)
+	return actions, err
+}
+
+func (d *Database) UpdateQuarantine(id int, status string) error {
+	return d.call("quarantine.update", map[string]any{"id": id, "status": status}, nil)
+}
+
+func (d *Database) RestoreQuarantine(id int) error {
+	return d.call("quarantine.restore", map[string]any{"id": id, "restored_at": time.Now().UTC().Format(time.RFC3339)}, nil)
+}
+
+func (d *Database) Close() error { return nil }

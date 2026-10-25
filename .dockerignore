@@ -32,3 +32,8 @@ Thumbs.db
 
 data
 tmp
+.env*
+.wrangler/
+quarantine/
+*.db
+*.sqlite*

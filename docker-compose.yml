@@ -1,25 +1,20 @@
-version: '3.8'
-
 services:
   auto-rename:
     container_name: auto-rename
-    image: auto-rename
+    image: auto-rename:latest
+    user: "1000:100"
     ports:
-      - "8768:8080"
+      - "127.0.0.1:8768:8080"
+    env_file:
+      - .env.runtime
     volumes:
-      # Mount your local directory for files to be renamed
-      # Mount directory for persistent database storage
       - /mnt/DATA1T/selfhost/dockge/stacks/stash/data:/app/data
-      # Mount JSON settings file
-      - ./settings.json:/app/settings.json
-    restart: always
-    # Load configuration from JSON settings file
+      - ./quarantine:/app/quarantine
+      - ./settings.json:/app/settings.json:ro
     command: ["-config=/app/settings.json"]
-
-    # Alternative commands:
-    # For web-only mode (no renaming, just view history):
-    # command: ["-web-only", "-db=/app/data/renames.db", "-web-port=8080"]
-    # For renaming files with cron mode (every 30 minutes):
-    # command: ["-dir=/app/files", "-cron", "-cron-expr=*/30 * * * *", "-db=/app/data/renames.db", "-web-port=8080"]
-    # For dry-run mode with cron:
-    # command: ["-dir=/app/files", "-dry-run", "-cron", "-cron-expr=*/30 * * * *", "-db=/app/data/renames.db", "-web-port=8080"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

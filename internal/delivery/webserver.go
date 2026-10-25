@@ -2,18 +2,15 @@
 package delivery
 
 import (
-	"auto-rename/internal/config"
 	"auto-rename/internal/domain"
 	"auto-rename/internal/infrastructure"
+	"auto-rename/internal/usecase"
 	"encoding/json"
 	"html/template"
-	"log"
 	"math"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -21,6 +18,7 @@ type WebServer struct {
 	db      *infrastructure.Database
 	webPort string
 	baseDir string
+	scanner *usecase.Scanner
 }
 
 func NewWebServer(db *infrastructure.Database, webPort string) *WebServer {
@@ -29,6 +27,10 @@ func NewWebServer(db *infrastructure.Database, webPort string) *WebServer {
 
 func NewWebServerWithDir(db *infrastructure.Database, webPort, baseDir string) *WebServer {
 	return &WebServer{db: db, webPort: webPort, baseDir: baseDir}
+}
+
+func NewWebServerWithScanner(db *infrastructure.Database, scanner *usecase.Scanner, webPort, baseDir string) *WebServer {
+	return &WebServer{db: db, scanner: scanner, webPort: webPort, baseDir: baseDir}
 }
 
 func (ws *WebServer) Start() error {
@@ -43,8 +45,17 @@ func (ws *WebServer) Start() error {
 	mux.HandleFunc("/api/records", ws.handleAPIRecords)
 	mux.HandleFunc("/api/browse", ws.handleAPIBrowser)
 	mux.HandleFunc("/api/stats", ws.handleAPIStats)
+	mux.HandleFunc("/api/health", ws.handleHealth)
 	mux.HandleFunc("/api/cron/status", ws.handleAPICronStatus)
 	mux.HandleFunc("/api/cron/trigger", ws.handleAPICronTrigger)
+	mux.HandleFunc("/api/runs", ws.handleRuns)
+	mux.HandleFunc("/api/duplicates/scan", ws.handleDuplicateScan)
+	mux.HandleFunc("/api/duplicates/quarantine", ws.handleDuplicateQuarantine)
+	mux.HandleFunc("/api/duplicates", ws.handleDuplicates)
+	mux.HandleFunc("/api/quarantine/restore", ws.handleQuarantineRestore)
+	mux.HandleFunc("/api/quarantine", ws.handleQuarantine)
+	mux.HandleFunc("/api/records/restore", ws.handleRecordRestore)
+	mux.HandleFunc("/duplicates", ws.handleDuplicatesPage)
 	mux.HandleFunc("/api/file", ws.handleAPIFile)
 	mux.HandleFunc("/settings", ws.handleSettings)
 	mux.HandleFunc("/api/settings", ws.handleAPISettings)
@@ -81,7 +92,16 @@ func (ws *WebServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	failed, _ := ws.db.GetFailedRenames()
 	recent, _ := ws.db.GetRecentActivity(24)
 	recentOps, _ := ws.db.GetRecentOperations(10)
-	cronStatus := infrastructure.GetCronStatus()
+	run := ws.scanner.Status()
+	cronStatus := &domain.CronStatus{
+		Enabled:        ws.scanner != nil,
+		IsRunning:      run.Status == "running",
+		Directory:      ws.baseDir,
+		LastRun:        run.StartedAt,
+		FilesProcessed: run.ProcessedFiles,
+		FilesSkipped:   run.TotalFiles - run.RenamedFiles,
+		LastError:      run.Error,
+	}
 
 	// Prepare dashboard data
 	data := &domain.DashboardData{
@@ -255,21 +275,20 @@ func (ws *WebServer) handleAPIStats(w http.ResponseWriter, r *http.Request) {
 	recentOps, _ := ws.db.GetRecentOperations(10)
 
 	stats := map[string]interface{}{
-		"status":              "ok",
-		"total_records":       total,
-		"successful_renames":  successful,
-		"failed_renames":      failed,
-		"recent_activity":     recent,
-		"recent_operations":   recentOps,
-		"timestamp":           time.Now().Format(time.RFC3339),
+		"status":             "ok",
+		"total_records":      total,
+		"successful_renames": successful,
+		"failed_renames":     failed,
+		"recent_activity":    recent,
+		"recent_operations":  recentOps,
+		"timestamp":          time.Now().Format(time.RFC3339),
 	}
 	json.NewEncoder(w).Encode(stats)
 }
 
 func (ws *WebServer) handleAPICronStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	cronStatus := infrastructure.GetCronStatus()
-	json.NewEncoder(w).Encode(cronStatus)
+	json.NewEncoder(w).Encode(ws.scanner.Status())
 }
 
 func (ws *WebServer) handleAPICronTrigger(w http.ResponseWriter, r *http.Request) {
@@ -278,26 +297,17 @@ func (ws *WebServer) handleAPICronTrigger(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	// Set cron as running
-	infrastructure.SetCronRunning(true)
-	defer infrastructure.SetCronRunning(false)
-
-	// Trigger a scan in background (non-blocking)
-	go func() {
-		// Import usecase to call rename function
-		// For now, just mark that a trigger occurred
-		nextRun := time.Now().Add(1 * time.Minute)
-		infrastructure.RecordCronExecution(nextRun, 0, 0, nil)
-	}()
-
-	result := map[string]interface{}{
-		"status":  "triggered",
-		"message": "Cron scan triggered successfully",
-		"timestamp": time.Now().Format(time.RFC3339),
+	if ws.scanner == nil {
+		http.Error(w, "Scanner unavailable", http.StatusServiceUnavailable)
+		return
 	}
-	json.NewEncoder(w).Encode(result)
+	id, err := ws.scanner.Trigger("manual")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"status": "running", "run_id": id})
 }
 
 func (ws *WebServer) handleAPIFile(w http.ResponseWriter, r *http.Request) {
@@ -314,22 +324,8 @@ func (ws *WebServer) handleAPIFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate path to prevent traversal attacks
-	absBasePath, err := filepath.Abs(ws.baseDir)
+	absFilePath, err := infrastructure.ResolveWithin(ws.baseDir, filePath)
 	if err != nil {
-		http.Error(w, "Invalid base directory", http.StatusInternalServerError)
-		return
-	}
-
-	absFilePath := filepath.Join(absBasePath, filePath)
-	absFilePath, err = filepath.Abs(absFilePath)
-	if err != nil {
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
-		return
-	}
-
-	// Ensure we're still within the base directory
-	if !strings.HasPrefix(absFilePath, absBasePath) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -425,166 +421,4 @@ func (ws *WebServer) handleAPIBrowser(w http.ResponseWriter, r *http.Request) {
 		"breadcrumb":   breadcrumb,
 		"base_dir":     ws.baseDir,
 	})
-}
-
-func (ws *WebServer) handleSettings(w http.ResponseWriter, r *http.Request) {
-	println("handleSettings:", r.URL.Path, "IP:", r.RemoteAddr, "Time:", time.Now().Format("2006-01-02 15:04:05"))
-
-	// Load settings from JSON file
-	settings, err := config.LoadSettings("settings.json")
-	if err != nil {
-		http.Error(w, "Failed to load settings", http.StatusInternalServerError)
-		return
-	}
-
-	// Prepare settings page data
-	data := &domain.SettingsData{
-		Dir:                 settings.Dir,
-		DryRun:              settings.DryRun,
-		WebPort:             settings.WebPort,
-		WebOnly:             settings.WebOnly,
-		DbPath:              settings.DbPath,
-		Cron:                settings.Cron,
-		CronExpr:            settings.CronExpr,
-		RenameSubfolder:     settings.RenameSubfolder,
-		FormatSize:          settings.FormatSize,
-		FormatDatetime:      settings.FormatDatetime,
-		FormatTimezone:      settings.FormatTimezone,
-		FormatSizeDecimals:  settings.FormatSizeDecimals,
-		UpdatedAt:           settings.UpdatedAt,
-	}
-
-	tmpl, err := template.New("settings.html").ParseFiles("template/settings.html")
-	if err != nil {
-		http.Error(w, "Template settings error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	tmpl.Execute(w, data)
-}
-
-func (ws *WebServer) handleAPISettings(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == http.MethodGet {
-		// Load settings from JSON file
-		settings, err := config.LoadSettings("settings.json")
-		if err != nil {
-			http.Error(w, "Failed to load settings", http.StatusInternalServerError)
-			return
-		}
-
-		response := map[string]interface{}{
-			"dir":                   settings.Dir,
-			"dry_run":               settings.DryRun,
-			"web_port":              settings.WebPort,
-			"web_only":              settings.WebOnly,
-			"db_path":               settings.DbPath,
-			"cron":                  settings.Cron,
-			"cron_expr":             settings.CronExpr,
-			"rename_subfolder":      settings.RenameSubfolder,
-			"format_size":           settings.FormatSize,
-			"format_datetime":       settings.FormatDatetime,
-			"format_timezone":       settings.FormatTimezone,
-			"format_size_decimals":  settings.FormatSizeDecimals,
-			"updated_at":            settings.UpdatedAt,
-		}
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	if r.Method == http.MethodPost {
-		// Parse request body
-		var req struct {
-			Dir                  string `json:"dir"`
-			DryRun               bool   `json:"dry_run"`
-			WebPort              string `json:"web_port"`
-			WebOnly              bool   `json:"web_only"`
-			DbPath               string `json:"db_path"`
-			Cron                 bool   `json:"cron"`
-			CronExpr             string `json:"cron_expr"`
-			RenameSubfolder      bool   `json:"rename_subfolder"`
-			FormatSize           string `json:"format_size"`
-			FormatDatetime       string `json:"format_datetime"`
-			FormatTimezone       string `json:"format_timezone"`
-			FormatSizeDecimals   int    `json:"format_size_decimals"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
-
-		// Validate directory path if provided and not web_only
-		if !req.WebOnly && req.Dir != "" {
-			if info, err := os.Stat(req.Dir); err != nil || !info.IsDir() {
-				http.Error(w, "Invalid directory path", http.StatusBadRequest)
-				return
-			}
-		}
-
-		// Validate format options
-		validSizes := map[string]bool{"auto": true, "B": true, "KB": true, "MB": true, "GB": true}
-		if !validSizes[req.FormatSize] {
-			http.Error(w, "Invalid format_size", http.StatusBadRequest)
-			return
-		}
-
-		validTimezones := map[string]bool{"UTC": true, "Local": true}
-		if !validTimezones[req.FormatTimezone] {
-			http.Error(w, "Invalid format_timezone", http.StatusBadRequest)
-			return
-		}
-
-		if req.FormatSizeDecimals < 0 || req.FormatSizeDecimals > 5 {
-			http.Error(w, "format_size_decimals must be 0-5", http.StatusBadRequest)
-			return
-		}
-
-		// Create settings struct and save to file
-		newSettings := config.Settings{
-			Dir:                 req.Dir,
-			DryRun:              req.DryRun,
-			WebPort:             req.WebPort,
-			WebOnly:             req.WebOnly,
-			DbPath:              req.DbPath,
-			Cron:                req.Cron,
-			CronExpr:            req.CronExpr,
-			RenameSubfolder:     req.RenameSubfolder,
-			FormatSize:          req.FormatSize,
-			FormatDatetime:      req.FormatDatetime,
-			FormatTimezone:      req.FormatTimezone,
-			FormatSizeDecimals:  req.FormatSizeDecimals,
-		}
-
-		// Save to settings.json file
-		if err := config.SaveSettings(newSettings, "settings.json"); err != nil {
-			http.Error(w, "Failed to save settings: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Also save to database for history
-		if err := ws.db.SaveSetting("dir", req.Dir); err != nil {
-			log.Printf("Warning: failed to save to database: %v", err)
-		}
-
-		response := map[string]interface{}{
-			"dir":                   req.Dir,
-			"dry_run":               req.DryRun,
-			"web_port":              req.WebPort,
-			"web_only":              req.WebOnly,
-			"db_path":               req.DbPath,
-			"cron":                  req.Cron,
-			"cron_expr":             req.CronExpr,
-			"rename_subfolder":      req.RenameSubfolder,
-			"format_size":           req.FormatSize,
-			"format_datetime":       req.FormatDatetime,
-			"format_timezone":       req.FormatTimezone,
-			"format_size_decimals":  req.FormatSizeDecimals,
-			"updated_at":            time.Now().Format(time.RFC3339),
-		}
-		json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }

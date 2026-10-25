@@ -1,0 +1,14 @@
+{
+  "name": "auto-rename-db",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-10",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "db",
+      "database_id": "6eb9cfce-f6f3-4476-8e46-7c8e954d93c1",
+      "migrations_dir": "migrations",
+      "migrations_table": "auto_rename_migrations"
+    }
+  ]
+}

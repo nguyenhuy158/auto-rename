@@ -1,9 +1,9 @@
-// Entry point for auto-rename app
 package main
 
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"auto-rename/internal/config"
 	"auto-rename/internal/delivery"
@@ -13,44 +13,40 @@ import (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("Environment variables:")
 	cfg := config.ParseFlags()
-	// log.Printf("config.Cron=%v", cfg.Cron)
-	// log.Printf("config.Dir=%v", cfg.Dir)
 
 	if err := config.ValidateConfig(cfg); err != nil {
 		log.Fatalf("Configuration error: %v", err)
 	}
 
-	db, err := infrastructure.NewDatabase(cfg.DbPath)
+	db, err := infrastructure.NewDatabase(os.Getenv("AUTO_RENAME_API_URL"), os.Getenv("AUTO_RENAME_API_TOKEN"))
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
-
-	if !cfg.WebOnly && cfg.Dir != "" {
-		if err := usecase.RenameFiles(cfg, db); err != nil {
-			log.Fatalf("Error renaming files: %v", err)
-		}
+	if err := db.Ping(); err != nil {
+		log.Fatalf("D1 API unavailable: %v", err)
 	}
 
-	if cfg.Cron {
-		if cfg.Dir == "" {
-			log.Fatalf("-cron requires -dir to be specified")
-		}
-		log.Printf("Cron mode enabled: scanning %s with expression '%s'", cfg.Dir, cfg.CronExpr)
-		go usecase.StartCronScanner(cfg, db)
+	scanner, err := usecase.NewScanner(cfg, db)
+	if err != nil {
+		log.Fatalf("Failed to initialize scanner: %v", err)
+	}
+	if err := scanner.Reconcile(); err != nil {
+		log.Fatalf("Failed to reconcile file operations: %v", err)
+	}
+	if err := scanner.StartCron(); err != nil {
+		log.Fatalf("Failed to initialize cron: %v", err)
 	}
 
 	if cfg.WebPort != "" {
 		fmt.Printf("\nStarting web server on port %s...\n", cfg.WebPort)
 		fmt.Printf("View results at: http://localhost:%s\n", cfg.WebPort)
-		webServer := delivery.NewWebServerWithDir(db, cfg.WebPort, cfg.Dir)
+		webServer := delivery.NewWebServerWithScanner(db, scanner, cfg.WebPort, cfg.Dir)
 		log.Fatal(webServer.Start())
 	}
 
-	if cfg.Cron && cfg.WebPort == "" {
-		// Block main goroutine so cron scanner keeps running if no web server
+	if cfg.Cron && !cfg.WebOnly && cfg.WebPort == "" {
 		select {}
 	}
 }

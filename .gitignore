@@ -1,5 +1,8 @@
 tmp/*
 .env
+.env.runtime
+quarantine/
+.wrangler/
 *.db
 auto-rename
 */.DS_Store
