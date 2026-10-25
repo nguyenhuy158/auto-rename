@@ -1,6 +1,6 @@
 # Auto Rename
 
-Auto Rename scans a configured video folder, gives unrenamed files UUID names, finds files with identical content, and keeps an operation history in Cloudflare D1. The MVP runs in Docker on the NixOS VM. [Issue #4](https://github.com/nguyenhuy158/auto-rename/issues/4) tracks moving the service to Pipi while the files remain on NixOS.
+Auto Rename scans a configured video folder, gives unrenamed files UUID names, finds files with identical content, and keeps an operation history in Cloudflare D1. The service runs in Docker on Pipi and accesses files on NixOS through a Tailscale restricted NFS mount.
 
 ## MVP behavior
 
@@ -18,9 +18,9 @@ Ctrl+K searches pages, active settings, file names and paths, duplicate groups, 
 
 ## Storage and runtime
 
-The Go process runs on NixOS and is the only component that touches local files. A small Cloudflare Worker exposes authenticated operations to the shared D1 database named `db`. All app tables, indexes, and the migration table use the `auto_rename_` prefix. The Worker token lives in a Worker secret and the VM's ignored `.env.runtime` file; it is never sent to the browser.
+The Go process runs on Pipi and accesses NixOS files through NFS. A small Cloudflare Worker exposes authenticated operations to the shared D1 database named `db`. All app tables, indexes, and the migration table use the `auto_rename_` prefix. The Worker token lives in a Worker secret and Pipi's ignored `.env.runtime` file; it is never sent to the browser.
 
-The Docker UI is bound to `127.0.0.1:8768` on NixOS. It is not a public web service. Use an SSH tunnel to view it from another computer. Publishing the GitHub repository does not publish the UI or the files.
+The Docker UI is bound to `127.0.0.1:8768` on Pipi. It is not a public web service. Use an SSH tunnel to view it from another computer. Publishing the GitHub repository does not publish the UI or the files.
 
 The default configuration enables `dry_run` and disables cron. A manual rename scan in this mode records a preview run without changing files. To apply renames, set `dry_run` to `false` in `settings.json` and restart the container. To schedule later scans, also set `cron` to `true` and choose `cron_expr`.
 
@@ -56,7 +56,7 @@ bash scripts/e2e.sh --docker
 
 The React UI uses the published `ui-kit` design tokens and project-owned components. [openapi.yaml](openapi.yaml) is the browser API contract. `pnpm build` generates `web/src/generated/api.d.ts` from the contract, checks TypeScript, and builds the UI. The running service serves the contract at `/openapi.yaml`. Update the spec when changing Go response or request JSON and regenerate the types. `make build` builds both the UI and Go server in a local Docker image; it does not push to a registry. GitHub Actions checks Go, the frontend contract and build, and the Docker image. Browser E2E belongs to the next milestone.
 
-`scripts/e2e.sh` creates disposable sample files and a local D1 database, runs the Worker and Docker image, then verifies rename, duplicate detection, quarantine, restore, and startup reconciliation after simulated interrupted moves. It never mounts Stash. The script requires Docker, Go, Node, Python 3, curl, OpenSSL, and `npx`; omit `--docker` to run the Go process directly. The VM transfer still requires a separate live disconnection check against sample files on NixOS.
+`scripts/e2e.sh` creates disposable sample files and a local D1 database, runs the Worker and Docker image, then verifies rename, duplicate detection, quarantine, restore, and startup reconciliation after simulated interrupted moves. It never mounts Stash. The script requires Docker, Go, Node, Python 3, curl, OpenSSL, and `npx`; omit `--docker` to run the Go process directly. The Pipi transfer was also checked with disposable files on the NixOS NFS share and a temporary network interruption.
 
 ## Pipi transfer
 
