@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Rounded square monogram template -->
-  <!-- Replace #0066cc with your brand color -->
-  <!-- Replace "A" with your letter(s) -->
-  <!-- rx="6" = 18.75% corner radius (iOS-style) -->
-  <rect width="32" height="32" rx="6" fill="#0066cc"/>
-  <text x="16" y="21" font-size="18" font-weight="bold"
-        text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif">A</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#06c" rx="6"/><text x="16" y="21" fill="#fff" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle">A</text></svg>
