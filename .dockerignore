@@ -37,3 +37,6 @@ tmp
 quarantine/
 *.db
 *.sqlite*
+web/node_modules/
+web/dist/
+web/src/generated/

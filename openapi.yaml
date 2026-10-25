@@ -1,0 +1,362 @@
+openapi: 3.1.0
+info:
+  title: Auto Rename API
+  version: 1.0.0
+  description: Browser-facing API for local video scans, duplicate quarantine, and recovery.
+servers:
+  - url: /
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: D1 is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: {type: string, const: ok}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/settings:
+    get:
+      operationId: getSettings
+      responses:
+        '200':
+          description: Active read-only settings
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Settings'}
+  /api/stats:
+    get:
+      operationId: getStats
+      responses:
+        '200':
+          description: Rename history summary
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Stats'}
+  /api/cron/status:
+    get:
+      operationId: getScanStatus
+      responses:
+        '200':
+          description: Current scan
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ScanRun'}
+  /api/cron/trigger:
+    post:
+      operationId: triggerRenameScan
+      responses:
+        '200':
+          description: Scan started
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StartedRun'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/runs:
+    get:
+      operationId: getRuns
+      responses:
+        '200':
+          description: Current and recent runs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [current, recent]
+                properties:
+                  current: {$ref: '#/components/schemas/ScanRun'}
+                  recent: {type: array, items: {$ref: '#/components/schemas/ScanRun'}}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/duplicates:
+    get:
+      operationId: getDuplicates
+      responses:
+        '200':
+          description: Duplicate groups from the latest scan; first file is the keeper
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groups]
+                properties:
+                  groups: {type: array, items: {$ref: '#/components/schemas/DuplicateGroup'}}
+  /api/duplicates/scan:
+    post:
+      operationId: triggerDuplicateScan
+      responses:
+        '200': {$ref: '#/components/responses/RunId'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/duplicates/quarantine:
+    post:
+      operationId: quarantineDuplicates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sha256, confirm]
+              properties:
+                sha256: {type: string}
+                paths: {type: array, items: {type: string}}
+                all: {type: boolean}
+                confirm: {type: boolean, const: true}
+      responses:
+        '200': {$ref: '#/components/responses/RunId'}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/duplicates/quarantine-all:
+    post:
+      operationId: quarantineAllDuplicates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Confirmation'}
+      responses:
+        '200': {$ref: '#/components/responses/RunId'}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/quarantine:
+    get:
+      operationId: getQuarantine
+      responses:
+        '200':
+          description: Quarantined and restored files
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [actions]
+                properties:
+                  actions: {type: array, items: {$ref: '#/components/schemas/QuarantineAction'}}
+        '503': {$ref: '#/components/responses/Error'}
+  /api/quarantine/restore:
+    post:
+      operationId: restoreQuarantine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/IdRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Restored'}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/records:
+    get:
+      operationId: getRecords
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, default: 20}}
+        - {name: search, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string}}
+        - {name: dateFrom, in: query, schema: {type: string}}
+        - {name: dateTo, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: Paged rename records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [records, total, page, pageSize]
+                properties:
+                  records: {type: array, items: {$ref: '#/components/schemas/FileRecord'}}
+                  total: {type: integer}
+                  page: {type: integer}
+                  pageSize: {type: integer}
+        '500': {$ref: '#/components/responses/Error'}
+  /api/records/restore:
+    post:
+      operationId: restoreName
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/IdRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Restored'}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/browse:
+    get:
+      operationId: browseFiles
+      parameters:
+        - {name: path, in: query, schema: {type: string, default: .}}
+      responses:
+        '200':
+          description: Directory entries within the source root
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [current_path, entries, breadcrumb, base_dir]
+                properties:
+                  current_path: {type: string}
+                  entries: {type: array, items: {$ref: '#/components/schemas/FileEntry'}}
+                  breadcrumb: {type: array, items: {$ref: '#/components/schemas/Breadcrumb'}}
+                  base_dir: {type: string}
+        '400': {$ref: '#/components/responses/Error'}
+        '500': {$ref: '#/components/responses/Error'}
+  /api/file:
+    get:
+      operationId: getFile
+      parameters:
+        - {name: path, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: File content
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '400': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+components:
+  responses:
+    Error:
+      description: Plain text error
+      content:
+        text/plain:
+          schema: {type: string}
+    RunId:
+      description: Operation started
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [run_id]
+            properties:
+              run_id: {type: integer}
+    Restored:
+      description: Original path restored
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [restored]
+            properties:
+              restored: {type: boolean, const: true}
+  schemas:
+    StartedRun:
+      type: object
+      required: [status, run_id]
+      properties:
+        status: {type: string, const: running}
+        run_id: {type: integer}
+    Confirmation:
+      type: object
+      required: [confirm]
+      properties:
+        confirm: {type: boolean, const: true}
+    IdRequest:
+      type: object
+      required: [id]
+      properties:
+        id: {type: integer, minimum: 1}
+    Settings:
+      type: object
+      required: [dir, quarantine_dir, extensions, dry_run, web_port, web_only, cron, cron_expr, rename_subfolder]
+      properties:
+        dir: {type: string}
+        quarantine_dir: {type: string}
+        extensions: {type: array, items: {type: string}}
+        dry_run: {type: boolean}
+        web_port: {type: string}
+        web_only: {type: boolean}
+        cron: {type: boolean}
+        cron_expr: {type: string}
+        rename_subfolder: {type: boolean}
+    Stats:
+      type: object
+      required: [status, total_records, successful_renames, failed_renames, recent_activity, recent_operations, timestamp]
+      properties:
+        status: {type: string}
+        total_records: {type: integer}
+        successful_renames: {type: integer}
+        failed_renames: {type: integer}
+        recent_activity: {type: integer}
+        recent_operations: {type: array, items: {$ref: '#/components/schemas/FileRecord'}}
+        timestamp: {type: string}
+    ScanRun:
+      type: object
+      required: [id, source, status, started_at, finished_at, total_files, processed_files, renamed_files, duplicate_files, error]
+      properties:
+        id: {type: integer}
+        source: {type: string}
+        status: {type: string}
+        started_at: {type: string}
+        finished_at: {type: string}
+        total_files: {type: integer}
+        processed_files: {type: integer}
+        renamed_files: {type: integer}
+        duplicate_files: {type: integer}
+        error: {type: string}
+    DuplicateFile:
+      type: object
+      required: [path, size, modified_at]
+      properties:
+        path: {type: string}
+        size: {type: integer}
+        modified_at: {type: string}
+    DuplicateGroup:
+      type: object
+      required: [sha256, size, files]
+      properties:
+        sha256: {type: string}
+        size: {type: integer}
+        files: {type: array, items: {$ref: '#/components/schemas/DuplicateFile'}}
+    FileRecord:
+      type: object
+      required: [id, original_name, new_name, file_path, file_size, file_mode, mod_time, success, error_msg, renamed_at, status, restored_at]
+      properties:
+        id: {type: integer}
+        original_name: {type: string}
+        new_name: {type: string}
+        file_path: {type: string}
+        file_size: {type: integer}
+        file_mode: {type: string}
+        mod_time: {type: string}
+        success: {type: boolean}
+        error_msg: {type: string}
+        renamed_at: {type: string}
+        status: {type: string}
+        restored_at: {type: string}
+    QuarantineAction:
+      type: object
+      required: [id, original_path, quarantine_path, sha256, kept_path, status, created_at, restored_at]
+      properties:
+        id: {type: integer}
+        original_path: {type: string}
+        quarantine_path: {type: string}
+        sha256: {type: string}
+        kept_path: {type: string}
+        status: {type: string}
+        created_at: {type: string}
+        restored_at: {type: string}
+    FileEntry:
+      type: object
+      required: [name, path, is_dir, size, mod_time, can_rename, is_image, is_video, mime_type]
+      properties:
+        name: {type: string}
+        path: {type: string}
+        is_dir: {type: boolean}
+        size: {type: integer}
+        mod_time: {type: string}
+        can_rename: {type: boolean}
+        is_image: {type: boolean}
+        is_video: {type: boolean}
+        mime_type: {type: string}
+    Breadcrumb:
+      type: object
+      required: [name, path]
+      properties:
+        name: {type: string}
+        path: {type: string}

@@ -42,11 +42,12 @@ The legacy SQLite file remains untouched. To copy its history into D1 after depl
 
 ```sh
 go test ./...
+cd web && pnpm install --frozen-lockfile && pnpm build && cd ..
 make build
 docker compose up -d
 ```
 
-Run `make build` after any Go source change before updating the container. The `make build` target builds a local image and does not push to a registry. The existing GitHub Actions workflow runs Go tests and a Docker build; expanded CI and browser E2E belong to the next milestone.
+The React UI uses the published `ui-kit` design tokens and project-owned components. [openapi.yaml](openapi.yaml) is the browser API contract. `pnpm build` generates `web/src/generated/api.d.ts` from the contract, checks TypeScript, and builds the UI. The running service serves the contract at `/openapi.yaml`. Update the spec when changing Go response or request JSON and regenerate the types. `make build` builds both the UI and Go server in a local Docker image; it does not push to a registry. GitHub Actions checks Go, the frontend contract and build, and the Docker image. Browser E2E belongs to the next milestone.
 
 For a local D1 test, apply the migrations with `wrangler d1 migrations apply db --local`, start `wrangler dev` with a temporary `API_TOKEN`, and run the Go app against that local Worker with sample files outside the Stash directory.
 
