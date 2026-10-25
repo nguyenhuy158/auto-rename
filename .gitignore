@@ -10,3 +10,7 @@ data
 .opencode
 openspec
 AGENTS.md
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+web/src/generated/

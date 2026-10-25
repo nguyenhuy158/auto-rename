@@ -36,10 +36,12 @@ func (ws *WebServer) Start() error {
 	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir("static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fileServer))
+	mux.Handle("/assets/", http.FileServer(http.Dir("web/dist")))
+	mux.HandleFunc("/openapi.yaml", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "openapi.yaml") })
 	mux.HandleFunc("/favicon.ico", ws.handleFavicon)
-	mux.HandleFunc("/logs", ws.handleLogs)
-	mux.HandleFunc("/records", ws.handleRecord)
-	mux.HandleFunc("/browse", ws.handleBrowser)
+	mux.HandleFunc("/logs", ws.handleApp)
+	mux.HandleFunc("/records", ws.handleApp)
+	mux.HandleFunc("/browse", ws.handleApp)
 	mux.HandleFunc("/api/records", ws.handleAPIRecords)
 	mux.HandleFunc("/api/browse", ws.handleAPIBrowser)
 	mux.HandleFunc("/api/stats", ws.handleAPIStats)
@@ -54,16 +56,28 @@ func (ws *WebServer) Start() error {
 	mux.HandleFunc("/api/quarantine/restore", ws.handleQuarantineRestore)
 	mux.HandleFunc("/api/quarantine", ws.handleQuarantine)
 	mux.HandleFunc("/api/records/restore", ws.handleRecordRestore)
-	mux.HandleFunc("/duplicates", ws.handleDuplicatesPage)
+	mux.HandleFunc("/duplicates", ws.handleApp)
 	mux.HandleFunc("/api/file", ws.handleAPIFile)
-	mux.HandleFunc("/settings", ws.handleSettings)
+	mux.HandleFunc("/settings", ws.handleApp)
 	mux.HandleFunc("/api/settings", ws.handleAPISettings)
-	mux.HandleFunc("/", ws.handleIndex)
+	mux.HandleFunc("/", ws.handleApp)
 	server := &http.Server{
 		Addr:    ":" + ws.webPort,
 		Handler: mux,
 	}
 	return server.ListenAndServe()
+}
+
+func (ws *WebServer) handleApp(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" && r.URL.Path != "/duplicates" && r.URL.Path != "/records" && r.URL.Path != "/logs" && r.URL.Path != "/browse" && r.URL.Path != "/settings" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	http.ServeFile(w, r, "web/dist/index.html")
 }
 
 func (ws *WebServer) handleFavicon(w http.ResponseWriter, r *http.Request) {
