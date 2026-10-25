@@ -1,6 +1,6 @@
 # Auto Rename
 
-Auto Rename scans a configured video folder, gives unrenamed files UUID names, finds files with identical content, and keeps an operation history in Cloudflare D1. The MVP runs in Docker on the NixOS VM. [Issue #4](https://github.com/nguyenhuy158/auto-rename/issues/4) tracks moving the service to Pipi while the files remain on NixOS.
+Auto Rename scans a configured video folder, gives unrenamed files UUID names, finds files with identical content, and keeps an operation history in Cloudflare D1. The service runs in Docker on Pipi and accesses files on NixOS through a Tailscale restricted NFS mount.
 
 ## MVP behavior
 
@@ -18,9 +18,9 @@ Ctrl+K searches pages, active settings, file names and paths, duplicate groups, 
 
 ## Storage and runtime
 
-The Go process runs on NixOS and is the only component that touches local files. A small Cloudflare Worker exposes authenticated operations to the shared D1 database named `db`. All app tables, indexes, and the migration table use the `auto_rename_` prefix. The Worker token lives in a Worker secret and the VM's ignored `.env.runtime` file; it is never sent to the browser.
+The Go process runs on Pipi and accesses NixOS files through NFS. A small Cloudflare Worker exposes authenticated operations to the shared D1 database named `db`. All app tables, indexes, and the migration table use the `auto_rename_` prefix. The Worker token lives in a Worker secret and Pipi's ignored `.env.runtime` file; it is never sent to the browser.
 
-The Docker UI is bound to `127.0.0.1:8768` on NixOS. It is not a public web service. Use an SSH tunnel to view it from another computer. Publishing the GitHub repository does not publish the UI or the files.
+The Docker UI is bound to `127.0.0.1:8768` on Pipi. It is not a public web service. Use an SSH tunnel to view it from another computer. Publishing the GitHub repository does not publish the UI or the files.
 
 The default configuration enables `dry_run` and disables cron. A manual rename scan in this mode records a preview run without changing files. To apply renames, set `dry_run` to `false` in `settings.json` and restart the container. To schedule later scans, also set `cron` to `true` and choose `cron_expr`.
 
@@ -28,9 +28,9 @@ The default configuration enables `dry_run` and disables cron. A manual rename s
 
 Copy `.env.runtime.example` to `.env.runtime` and set `AUTO_RENAME_API_URL` to the deployed Worker URL and `AUTO_RENAME_API_TOKEN` to the matching Worker secret. Never commit `.env.runtime` or paste its values into an issue.
 
-Edit `settings.json` for the source directory, quarantine directory, video extensions, dry-run mode, cron, and web port. The settings page displays the active values and is read-only. The NixOS Compose file mounts the Stash video directory at `/app/data`, the repo's ignored `quarantine/` directory at `/app/quarantine`, and `settings.json` read-only. Quarantine and source must be on the same filesystem.
+Edit `settings.json` for the source directory, quarantine directory, video extensions, dry-run mode, cron, and web port. The settings page displays the active values and is read-only. The v2 Compose file mounts `settings.json` read-only and keeps source and quarantine on one filesystem.
 
-Set `STASH_DATA_DIR` in an ignored `.env` file using `.env.example` as a template. The default video extensions are `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.m4v`, and `.wmv`. Directory symlinks are not traversed by scans. File browser paths are restricted to the configured source directory.
+Set `STASH_PARENT_DIR` in an ignored `.env` file using `.env.example` as a template. This directory must contain `data/` and `quarantine/` as siblings on one filesystem. Compose mounts the parent once at `/app`; separate bind mounts cause hard-link moves between source and quarantine to fail with `Cross-device link`, even when both host paths are on the same disk. The image runs from `/srv/app`, so existing D1 paths under `/app/data` remain valid. Other Stash directories are masked inside the container. The default video extensions are `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.m4v`, and `.wmv`. Directory symlinks are not traversed by scans. File browser paths are restricted to the configured source directory.
 
 ## D1 and Worker
 
@@ -51,11 +51,18 @@ go test ./...
 cd web && pnpm install --frozen-lockfile && pnpm build && cd ..
 make build
 docker compose up -d
+bash scripts/e2e.sh --docker
 ```
 
 The React UI uses the published `ui-kit` design tokens and project-owned components. [openapi.yaml](openapi.yaml) is the browser API contract. `pnpm build` generates `web/src/generated/api.d.ts` from the contract, checks TypeScript, and builds the UI. The running service serves the contract at `/openapi.yaml`. Update the spec when changing Go response or request JSON and regenerate the types. `make build` builds both the UI and Go server in a local Docker image; it does not push to a registry. GitHub Actions checks Go, the frontend contract and build, and the Docker image. Browser E2E belongs to the next milestone.
 
-For a local D1 test, apply the migrations with `wrangler d1 migrations apply db --local`, start `wrangler dev` with a temporary `API_TOKEN`, and run the Go app against that local Worker with sample files outside the Stash directory.
+`scripts/e2e.sh` creates disposable sample files and a local D1 database, runs the Worker and Docker image, then verifies rename, duplicate detection, quarantine, restore, and startup reconciliation after simulated interrupted moves. It never mounts Stash. The script requires Docker, Go, Node, Python 3, curl, OpenSSL, and `npx`; omit `--docker` to run the Go process directly. The Pipi transfer was also checked with disposable files on the NixOS NFS share and a temporary network interruption.
+
+## Pipi transfer
+
+The NixOS NFS export must allow only Pipi's Tailscale address. Place `data/` and `quarantine/` under the exported parent, and keep the export and mount on the same filesystem. The Pipi host uses one NFS mount at `/mnt/stash`; Compose binds that parent once at `/app`. Its systemd service requires the mount, while Docker does not independently restart the container before the mount is ready.
+
+On Pipi, check out this repository at `/opt/repo/auto-rename`, set `STASH_NFS_EXPORT` and the other non-secret mount values in an ignored `.env`, copy `.env.runtime` securely from the existing VM, and keep `settings.json` at `dry_run=true`, `cron=false`. Build the image with `make build`, then run `scripts/install-pipi.sh --mount-only` to install and verify the mount. Validate file operations and a temporary connection interruption with sample files on the NFS share before starting the production app. Stop the NixOS container before running `scripts/install-pipi.sh` without arguments to enable the Pipi service. Confirm the loopback UI, D1 and filesystem agree, and that the NixOS service stays stopped. The service still needs a separate approval before writing to real Stash files.
 
 ## Safety and recovery
 

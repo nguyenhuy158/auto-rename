@@ -3,16 +3,27 @@ services:
     container_name: auto-rename
     image: auto-rename:latest
     user: "1000:100"
+    read_only: true
     ports:
       - "127.0.0.1:8768:8080"
     env_file:
       - .env.runtime
     volumes:
-      - ${STASH_DATA_DIR:?Set STASH_DATA_DIR in .env}:/app/data
-      - ./quarantine:/app/quarantine
-      - ./settings.json:/app/settings.json:ro
-    command: ["-config=/app/settings.json"]
-    restart: unless-stopped
+      - type: bind
+        source: ${STASH_PARENT_DIR:?Set STASH_PARENT_DIR in .env}
+        target: /app
+        bind:
+          create_host_path: false
+      - ./settings.json:/srv/app/settings.json:ro
+    tmpfs:
+      - /tmp
+      - /app/config
+      - /app/blobs
+      - /app/cache
+      - /app/generated
+      - /app/metadata
+    command: ["-config=/srv/app/settings.json"]
+    restart: "no"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
       interval: 30s
