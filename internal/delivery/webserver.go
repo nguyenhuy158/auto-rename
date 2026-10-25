@@ -262,7 +262,7 @@ func (ws *WebServer) handleAPIRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"records":  records,
+		"records":  nonNil(records),
 		"total":    total,
 		"page":     page,
 		"pageSize": pageSize,
@@ -284,7 +284,7 @@ func (ws *WebServer) handleAPIStats(w http.ResponseWriter, r *http.Request) {
 		"successful_renames": successful,
 		"failed_renames":     failed,
 		"recent_activity":    recent,
-		"recent_operations":  recentOps,
+		"recent_operations":  nonNil(recentOps),
 		"timestamp":          time.Now().Format(time.RFC3339),
 	}
 	json.NewEncoder(w).Encode(stats)
@@ -408,7 +408,7 @@ func (ws *WebServer) handleAPIBrowser(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"current_path": currentPath,
-		"entries":      entries,
+		"entries":      nonNil(entries),
 		"breadcrumb":   breadcrumb,
 		"base_dir":     ws.baseDir,
 	})
