@@ -9,15 +9,25 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
 type WebServer struct {
-	db      *infrastructure.Database
-	webPort string
-	baseDir string
-	scanner *usecase.Scanner
+	db            *infrastructure.Database
+	webPort       string
+	baseDir       string
+	scanner       *usecase.Scanner
+	thumbnailOnce sync.Once
+	thumbnail     *thumbnailService
+	indexOnce     sync.Once
+	index         *usecase.SearchIndex
+	hlsOnce       sync.Once
+	hls           *hlsService
 }
 
 func NewWebServer(db *infrastructure.Database, webPort string) *WebServer {
@@ -33,6 +43,7 @@ func NewWebServerWithScanner(db *infrastructure.Database, scanner *usecase.Scann
 }
 
 func (ws *WebServer) Start() error {
+	ws.ensureIndex()
 	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir("static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fileServer))
@@ -60,6 +71,12 @@ func (ws *WebServer) Start() error {
 	mux.HandleFunc("/api/records/restore", ws.handleRecordRestore)
 	mux.HandleFunc("/duplicates", ws.handleApp)
 	mux.HandleFunc("/api/file", ws.handleAPIFile)
+	mux.HandleFunc("/api/thumbnail", ws.handleThumbnail)
+	mux.HandleFunc("/api/hls/start", ws.handleHLSStart)
+	mux.HandleFunc("/api/hls", ws.handleHLS)
+	mux.HandleFunc("/api/index/status", ws.handleIndexStatus)
+	mux.HandleFunc("/api/index/trigger", ws.handleIndexTrigger)
+	mux.HandleFunc("/api/search", ws.handleSearch)
 	mux.HandleFunc("/settings", ws.handleApp)
 	mux.HandleFunc("/api/settings", ws.handleAPISettings)
 	mux.HandleFunc("/", ws.handleApp)
@@ -235,25 +252,15 @@ func (ws *WebServer) handleRecord(w http.ResponseWriter, r *http.Request) {
 
 func (ws *WebServer) handleAPIRecords(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	page := 1
-	pageSize := 20
+	page, pageSize := pageQuery(r, 20)
 	search := r.URL.Query().Get("search")
 	status := r.URL.Query().Get("status")
 	dateFrom := r.URL.Query().Get("dateFrom")
 	dateTo := r.URL.Query().Get("dateTo")
 
-	if p := r.URL.Query().Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-	if ps := r.URL.Query().Get("pageSize"); ps != "" {
-		if v, err := strconv.Atoi(ps); err == nil && v > 0 {
-			pageSize = v
-		}
-	}
-
-	records, err := ws.db.GetRecordsByFilter(page, pageSize, search, status, dateFrom, dateTo)
+	sortBy := r.URL.Query().Get("sort")
+	order := r.URL.Query().Get("order")
+	records, err := ws.db.ListRecordsByFilter(page, pageSize, search, status, dateFrom, dateTo, sortBy, order)
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
@@ -388,6 +395,10 @@ func (ws *WebServer) handleBrowser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ws *WebServer) handleAPIBrowser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 
 	if ws.baseDir == "" {
@@ -405,12 +416,75 @@ func (ws *WebServer) handleAPIBrowser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to list directory", http.StatusInternalServerError)
 		return
 	}
+	search := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("search")))
+	if search != "" {
+		filtered := make([]domain.FileEntry, 0, len(entries))
+		for _, entry := range entries {
+			if strings.Contains(strings.ToLower(entry.Name), search) {
+				filtered = append(filtered, entry)
+			}
+		}
+		entries = filtered
+	}
+	sortBy := r.URL.Query().Get("sort")
+	if sortBy != "size" && sortBy != "mod_time" && sortBy != "type" {
+		sortBy = "name"
+	}
+	order := r.URL.Query().Get("order")
+	if order != "desc" {
+		order = "asc"
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		a, b := entries[i], entries[j]
+		if a.IsDir != b.IsDir {
+			return a.IsDir
+		}
+		comparison := 0
+		switch sortBy {
+		case "size":
+			if a.Size < b.Size {
+				comparison = -1
+			} else if a.Size > b.Size {
+				comparison = 1
+			}
+		case "mod_time":
+			comparison = strings.Compare(a.ModTime, b.ModTime)
+		case "type":
+			comparison = strings.Compare(strings.ToLower(filepath.Ext(a.Name)), strings.ToLower(filepath.Ext(b.Name)))
+		}
+		if comparison == 0 {
+			comparison = strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+		}
+		if order == "desc" {
+			return comparison > 0
+		}
+		return comparison < 0
+	})
+	total := len(entries)
+	page, pageSize := 1, 24
+	if parsed, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && parsed > 0 {
+		page = parsed
+	}
+	if parsed, err := strconv.Atoi(r.URL.Query().Get("pageSize")); err == nil && parsed > 0 {
+		pageSize = min(parsed, 100)
+	}
+	start := total
+	if page <= (total+pageSize-1)/pageSize {
+		start = (page - 1) * pageSize
+	}
+	end := min(start+pageSize, total)
+	entries = entries[start:end]
 
 	breadcrumb := infrastructure.GetBreadcrumb(currentPath)
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"current_path": currentPath,
 		"entries":      nonNil(entries),
+		"total":        total,
+		"page":         page,
+		"pageSize":     pageSize,
+		"sort":         sortBy,
+		"order":        order,
 		"breadcrumb":   breadcrumb,
 		"base_dir":     ws.baseDir,
 	})

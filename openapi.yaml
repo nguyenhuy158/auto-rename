@@ -61,6 +61,12 @@ paths:
   /api/runs:
     get:
       operationId: getRuns
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: search, in: query, schema: {type: string}}
+        - {name: sort, in: query, schema: {type: string, enum: [id, date, files, status], default: id}}
+        - {name: order, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
       responses:
         '200':
           description: Current and recent runs
@@ -68,10 +74,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [current, recent]
+                required: [current, recent, total, page, pageSize]
                 properties:
                   current: {$ref: '#/components/schemas/ScanRun'}
                   recent: {type: array, items: {$ref: '#/components/schemas/ScanRun'}}
+                  total: {type: integer}
+                  page: {type: integer}
+                  pageSize: {type: integer}
         '503': {$ref: '#/components/responses/Error'}
   /api/duplicates:
     get:
@@ -126,6 +135,12 @@ paths:
   /api/quarantine:
     get:
       operationId: getQuarantine
+      parameters:
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+        - {name: search, in: query, schema: {type: string}}
+        - {name: sort, in: query, schema: {type: string, enum: [id, date, path, status], default: id}}
+        - {name: order, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
       responses:
         '200':
           description: Quarantined and restored files
@@ -133,9 +148,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [actions]
+                required: [actions, total, page, pageSize]
                 properties:
                   actions: {type: array, items: {$ref: '#/components/schemas/QuarantineAction'}}
+                  total: {type: integer}
+                  page: {type: integer}
+                  pageSize: {type: integer}
         '503': {$ref: '#/components/responses/Error'}
   /api/quarantine/restore:
     post:
@@ -159,6 +177,8 @@ paths:
         - {name: status, in: query, schema: {type: string}}
         - {name: dateFrom, in: query, schema: {type: string}}
         - {name: dateTo, in: query, schema: {type: string}}
+        - {name: sort, in: query, schema: {type: string, enum: [id, name, size, date, status], default: id}}
+        - {name: order, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
       responses:
         '200':
           description: Paged rename records
@@ -190,6 +210,11 @@ paths:
       operationId: browseFiles
       parameters:
         - {name: path, in: query, schema: {type: string, default: .}}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 24}}
+        - {name: search, in: query, schema: {type: string}}
+        - {name: sort, in: query, schema: {type: string, enum: [name, size, mod_time, type], default: name}}
+        - {name: order, in: query, schema: {type: string, enum: [asc, desc], default: asc}}
       responses:
         '200':
           description: Directory entries within the source root
@@ -197,12 +222,17 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [current_path, entries, breadcrumb, base_dir]
+                required: [current_path, entries, breadcrumb, base_dir, total, page, pageSize, sort, order]
                 properties:
                   current_path: {type: string}
                   entries: {type: array, items: {$ref: '#/components/schemas/FileEntry'}}
                   breadcrumb: {type: array, items: {$ref: '#/components/schemas/Breadcrumb'}}
                   base_dir: {type: string}
+                  total: {type: integer}
+                  page: {type: integer}
+                  pageSize: {type: integer}
+                  sort: {type: string}
+                  order: {type: string}
         '400': {$ref: '#/components/responses/Error'}
         '500': {$ref: '#/components/responses/Error'}
   /api/file:
@@ -219,6 +249,115 @@ paths:
         '400': {$ref: '#/components/responses/Error'}
         '403': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
+  /api/thumbnail:
+    get:
+      operationId: getThumbnail
+      description: Returns a bounded JPEG preview of an image or video within the source root.
+      parameters:
+        - {name: path, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: JPEG thumbnail
+          headers:
+            ETag: {schema: {type: string}}
+          content:
+            image/jpeg:
+              schema: {type: string, format: binary}
+        '304': {description: Thumbnail unchanged}
+        '400': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /api/hls/start:
+    post:
+      operationId: startHlsStream
+      description: Starts a temporary HLS transcode for a video in the source root.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: {type: string}
+      responses:
+        '200':
+          description: Temporary playlist URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: {type: string}
+        '400': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /api/hls:
+    get:
+      operationId: getHlsStream
+      parameters:
+        - {name: id, in: query, required: true, schema: {type: string}}
+        - {name: file, in: query, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: HLS playlist or MPEG-TS segment
+          content:
+            application/vnd.apple.mpegurl:
+              schema: {type: string}
+            video/mp2t:
+              schema: {type: string, format: binary}
+        '404': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '504': {$ref: '#/components/responses/Error'}
+  /api/index/status:
+    get:
+      operationId: getIndexStatus
+      responses:
+        '200':
+          description: Read-only file indexing progress
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IndexStatus'}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/index/trigger:
+    post:
+      operationId: triggerIndex
+      responses:
+        '200':
+          description: Index refresh request
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [started]
+                properties:
+                  started: {type: boolean}
+        '400': {$ref: '#/components/responses/Error'}
+  /api/search:
+    get:
+      operationId: searchAll
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string, maxLength: 128}}
+      responses:
+        '200':
+          description: Ranked file and application results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [files, navigation, duplicates, records, runs, actions, index]
+                properties:
+                  files: {type: array, items: {$ref: '#/components/schemas/IndexedFile'}}
+                  navigation: {type: array, items: {$ref: '#/components/schemas/SearchNavigation'}}
+                  duplicates: {type: array, items: {$ref: '#/components/schemas/DuplicateSearchMatch'}}
+                  records: {type: array, items: {$ref: '#/components/schemas/FileRecord'}}
+                  runs: {type: array, items: {$ref: '#/components/schemas/ScanRun'}}
+                  actions: {type: array, items: {$ref: '#/components/schemas/QuarantineAction'}}
+                  index: {$ref: '#/components/schemas/IndexStatus'}
+        '400': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
 components:
   responses:
     Error:
@@ -245,6 +384,47 @@ components:
             properties:
               restored: {type: boolean, const: true}
   schemas:
+    IndexStatus:
+      type: object
+      required: [running, total_files, processed_files, media_indexed, pdf_indexed, failed_files, updated_at]
+      properties:
+        running: {type: boolean}
+        total_files: {type: integer}
+        processed_files: {type: integer}
+        media_indexed: {type: integer}
+        pdf_indexed: {type: integer}
+        failed_files: {type: integer}
+        updated_at: {type: string}
+    IndexedFile:
+      type: object
+      required: [path, name, kind, size, modified_at, duration_seconds, width, height, codec, format, snippet]
+      properties:
+        path: {type: string}
+        name: {type: string}
+        kind: {type: string, enum: [file, folder, image, video, pdf]}
+        size: {type: integer}
+        modified_at: {type: string}
+        duration_seconds: {type: number}
+        width: {type: integer}
+        height: {type: integer}
+        codec: {type: string}
+        format: {type: string}
+        snippet: {type: string}
+    SearchNavigation:
+      type: object
+      required: [kind, title, subtitle, url]
+      properties:
+        kind: {type: string, enum: [page, setting]}
+        title: {type: string}
+        subtitle: {type: string}
+        url: {type: string}
+    DuplicateSearchMatch:
+      type: object
+      required: [sha256, path, files]
+      properties:
+        sha256: {type: string}
+        path: {type: string}
+        files: {type: integer}
     StartedRun:
       type: object
       required: [status, run_id]
