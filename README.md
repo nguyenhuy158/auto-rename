@@ -5,7 +5,7 @@ Auto Rename scans a configured video folder, gives unrenamed files UUID names, f
 ## MVP behavior
 
 - The dashboard shows scan progress. `/duplicates` starts a rename scan immediately, scans for duplicate content, displays the oldest file to keep, and lists records for rollback.
-- A duplicate scan groups regular video files by size and then verifies matching content with SHA-256. Selected duplicates or all copies except the oldest can be moved to quarantine. The UI lists exact paths and asks for confirmation before moving them.
+- A duplicate scan groups regular video files by size and then verifies matching content with SHA-256. Selected duplicates, one entire group, or all groups can be moved to quarantine while keeping the oldest file in each group. The UI lists exact paths and asks for confirmation before moving them.
 - Quarantined files can be restored to their original path. A renamed file can be restored to its original name. An existing target is never overwritten.
 - D1 records the planned operation before a file move. On startup, the app reconciles interrupted operations using the files present at each path. Ambiguous operations block further changes for manual review.
 - Only extensions listed in `settings.json` are scanned. The default list contains video extensions; technical files such as `.frag`, `.m3u8`, and `.xml` are excluded. The service does not rename files on startup.

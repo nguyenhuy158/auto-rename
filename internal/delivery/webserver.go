@@ -1,4 +1,3 @@
-// Web server delivery layer for auto-rename
 package delivery
 
 import (
@@ -35,7 +34,6 @@ func NewWebServerWithScanner(db *infrastructure.Database, scanner *usecase.Scann
 
 func (ws *WebServer) Start() error {
 	mux := http.NewServeMux()
-	// Serve static files from ./static directory
 	fileServer := http.FileServer(http.Dir("static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", fileServer))
 	mux.HandleFunc("/favicon.ico", ws.handleFavicon)
@@ -51,6 +49,7 @@ func (ws *WebServer) Start() error {
 	mux.HandleFunc("/api/runs", ws.handleRuns)
 	mux.HandleFunc("/api/duplicates/scan", ws.handleDuplicateScan)
 	mux.HandleFunc("/api/duplicates/quarantine", ws.handleDuplicateQuarantine)
+	mux.HandleFunc("/api/duplicates/quarantine-all", ws.handleDuplicateQuarantineAll)
 	mux.HandleFunc("/api/duplicates", ws.handleDuplicates)
 	mux.HandleFunc("/api/quarantine/restore", ws.handleQuarantineRestore)
 	mux.HandleFunc("/api/quarantine", ws.handleQuarantine)
@@ -68,12 +67,10 @@ func (ws *WebServer) Start() error {
 }
 
 func (ws *WebServer) handleFavicon(w http.ResponseWriter, r *http.Request) {
-	// Try to serve actual favicon if present
 	if _, err := os.Stat("static/favicon.ico"); err == nil {
 		http.ServeFile(w, r, "static/favicon.ico")
 		return
 	}
-	// Fallback: minimal empty icon bytes so browsers stop requesting
 	w.Header().Set("Content-Type", "image/x-icon")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte{
@@ -86,15 +83,15 @@ func (ws *WebServer) handleFavicon(w http.ResponseWriter, r *http.Request) {
 func (ws *WebServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	println("handleIndex:", r.URL.Path, "IP:", r.RemoteAddr, "Time:", time.Now().Format("2006-01-02 15:04:05"))
 
-	// Fetch all statistics for SSR
 	total, _ := ws.db.GetTotalRecords()
 	successful, _ := ws.db.GetSuccessfulRenames()
 	failed, _ := ws.db.GetFailedRenames()
 	recent, _ := ws.db.GetRecentActivity(24)
 	recentOps, _ := ws.db.GetRecentOperations(10)
 	run := ws.scanner.Status()
+	configuration := ws.scanner.Configuration()
 	cronStatus := &domain.CronStatus{
-		Enabled:        ws.scanner != nil,
+		Enabled:        configuration.Cron && !configuration.WebOnly,
 		IsRunning:      run.Status == "running",
 		Directory:      ws.baseDir,
 		LastRun:        run.StartedAt,
@@ -103,7 +100,6 @@ func (ws *WebServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 		LastError:      run.Error,
 	}
 
-	// Prepare dashboard data
 	data := &domain.DashboardData{
 		TotalRecords:      total,
 		SuccessfulRenames: successful,
@@ -130,7 +126,6 @@ func (ws *WebServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 func (ws *WebServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 	println("handleLogs:", r.URL.Path, "IP:", r.RemoteAddr, "Time:", time.Now().Format("2006-01-02 15:04:05"))
 
-	// Parse query parameters
 	page := 1
 	pageSize := 50
 	search := r.URL.Query().Get("search")
@@ -142,11 +137,9 @@ func (ws *WebServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch filtered and paginated logs
 	records, _ := ws.db.GetRecordsByFilter(page, pageSize, search, status, "", "")
 	total, _ := ws.db.GetRecordCountByFilter(search, status, "", "")
 
-	// Prepare logs page data
 	data := &domain.LogsPageData{
 		Records:      records,
 		TotalRecords: total,
@@ -178,7 +171,6 @@ func (ws *WebServer) handleLogs(w http.ResponseWriter, r *http.Request) {
 func (ws *WebServer) handleRecord(w http.ResponseWriter, r *http.Request) {
 	println("handleRecord:", r.URL.Path, "IP:", r.RemoteAddr, "Time:", time.Now().Format("2006-01-02 15:04:05"))
 
-	// Parse query parameters
 	page := 1
 	pageSize := 20
 	search := r.URL.Query().Get("search")
@@ -192,11 +184,9 @@ func (ws *WebServer) handleRecord(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch filtered and paginated records
 	records, _ := ws.db.GetRecordsByFilter(page, pageSize, search, status, dateFrom, dateTo)
 	total, _ := ws.db.GetRecordCountByFilter(search, status, dateFrom, dateTo)
 
-	// Prepare records page data
 	data := &domain.RecordsPageData{
 		Records:      records,
 		TotalRecords: total,
@@ -311,14 +301,12 @@ func (ws *WebServer) handleAPICronTrigger(w http.ResponseWriter, r *http.Request
 }
 
 func (ws *WebServer) handleAPIFile(w http.ResponseWriter, r *http.Request) {
-	// Get file path from query parameter
 	filePath := r.URL.Query().Get("path")
 	if filePath == "" {
 		http.Error(w, "path parameter required", http.StatusBadRequest)
 		return
 	}
 
-	// If no base directory configured
 	if ws.baseDir == "" {
 		http.Error(w, "File browser not configured", http.StatusBadRequest)
 		return
@@ -330,7 +318,6 @@ func (ws *WebServer) handleAPIFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if file exists and is not a directory
 	info, err := os.Stat(absFilePath)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
@@ -341,36 +328,30 @@ func (ws *WebServer) handleAPIFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Serve the file with appropriate content type
 	http.ServeFile(w, r, absFilePath)
 }
 
 func (ws *WebServer) handleBrowser(w http.ResponseWriter, r *http.Request) {
 	println("handleBrowser:", r.URL.Path, "IP:", r.RemoteAddr, "Time:", time.Now().Format("2006-01-02 15:04:05"))
 
-	// Get current path from query parameter
 	currentPath := r.URL.Query().Get("path")
 	if currentPath == "" {
 		currentPath = "."
 	}
 
-	// If no base directory configured, show error
 	if ws.baseDir == "" {
 		http.Error(w, "File browser not configured (no directory specified)", http.StatusBadRequest)
 		return
 	}
 
-	// List directory contents
 	entries, err := infrastructure.ListDirectory(ws.baseDir, currentPath)
 	if err != nil {
 		http.Error(w, "Failed to list directory: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Get breadcrumb navigation
 	breadcrumb := infrastructure.GetBreadcrumb(currentPath)
 
-	// Prepare browser data
 	data := &domain.FileBrowserData{
 		CurrentPath: currentPath,
 		Entries:     entries,
@@ -393,26 +374,22 @@ func (ws *WebServer) handleBrowser(w http.ResponseWriter, r *http.Request) {
 func (ws *WebServer) handleAPIBrowser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// If no base directory configured
 	if ws.baseDir == "" {
 		http.Error(w, "File browser not configured", http.StatusBadRequest)
 		return
 	}
 
-	// Get current path from query parameter
 	currentPath := r.URL.Query().Get("path")
 	if currentPath == "" {
 		currentPath = "."
 	}
 
-	// List directory contents
 	entries, err := infrastructure.ListDirectory(ws.baseDir, currentPath)
 	if err != nil {
 		http.Error(w, "Failed to list directory", http.StatusInternalServerError)
 		return
 	}
 
-	// Get breadcrumb navigation
 	breadcrumb := infrastructure.GetBreadcrumb(currentPath)
 
 	json.NewEncoder(w).Encode(map[string]interface{}{

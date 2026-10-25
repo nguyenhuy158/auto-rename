@@ -1,7 +1,5 @@
-// Domain entities for auto-rename
 package domain
 
-// FileRecord định nghĩa thông tin file đã được xử lý
 type FileRecord struct {
 	Id           int    `json:"id"`
 	OriginalName string `json:"original_name"`
@@ -41,7 +39,6 @@ type QuarantineAction struct {
 	RestoredAt     string `json:"restored_at"`
 }
 
-// CronStatus tracks cron job execution state
 type CronStatus struct {
 	Enabled         bool   `json:"enabled"`
 	NextRun         string `json:"next_run"`
@@ -55,7 +52,6 @@ type CronStatus struct {
 	LastError       string `json:"last_error"`
 }
 
-// DashboardData holds all data for dashboard page rendering
 type DashboardData struct {
 	TotalRecords      int
 	SuccessfulRenames int
@@ -66,7 +62,6 @@ type DashboardData struct {
 	CurrentTime       string
 }
 
-// RecordsPageData holds all data for records page rendering
 type RecordsPageData struct {
 	Records      []FileRecord
 	TotalRecords int
@@ -78,7 +73,6 @@ type RecordsPageData struct {
 	DateTo       string
 }
 
-// LogsPageData holds all data for logs page rendering
 type LogsPageData struct {
 	Records      []FileRecord
 	TotalRecords int
@@ -88,7 +82,6 @@ type LogsPageData struct {
 	StatusFilter string
 }
 
-// FileEntry represents a file or directory in the browser
 type FileEntry struct {
 	Name      string `json:"name"`
 	Path      string `json:"path"`
@@ -101,7 +94,6 @@ type FileEntry struct {
 	MimeType  string `json:"mime_type"`
 }
 
-// FileBrowserData holds data for file browser page
 type FileBrowserData struct {
 	CurrentPath string
 	Entries     []FileEntry
@@ -109,13 +101,11 @@ type FileBrowserData struct {
 	Breadcrumb  []BreadcrumbItem
 }
 
-// BreadcrumbItem represents a part of the breadcrumb navigation
 type BreadcrumbItem struct {
 	Name string
 	Path string
 }
 
-// SettingsData holds all data for settings page rendering
 type SettingsData struct {
 	Dir                string
 	DryRun             bool

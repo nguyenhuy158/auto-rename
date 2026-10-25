@@ -29,6 +29,12 @@ type DuplicateGroup struct {
 	Files  []DuplicateFile `json:"files"`
 }
 
+type quarantineSelection struct {
+	hash   string
+	keeper string
+	path   string
+}
+
 func (s *Scanner) DuplicateGroups() []DuplicateGroup {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -215,26 +221,47 @@ func (s *Scanner) QuarantineDuplicates(hash string, selected []string, all bool)
 		}
 		seen[path] = true
 	}
+	selections := make([]quarantineSelection, 0, len(selected))
+	for _, path := range selected {
+		selections = append(selections, quarantineSelection{hash: hash, keeper: keeper, path: path})
+	}
+	return s.startQuarantine(selections)
+}
+
+func (s *Scanner) QuarantineAllDuplicates() (int, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.running {
+		return 0, errors.New("another operation is running")
+	}
+	if s.blocked {
+		return 0, errors.New("unresolved file operation needs review")
+	}
+	selections := make([]quarantineSelection, 0)
+	for _, group := range s.groups {
+		for _, file := range group.Files[1:] {
+			selections = append(selections, quarantineSelection{hash: group.SHA256, keeper: group.Files[0].Path, path: file.Path})
+		}
+	}
+	if len(selections) == 0 {
+		return 0, errors.New("no duplicate files found; scan again")
+	}
+	return s.startQuarantine(selections)
+}
+
+func (s *Scanner) startQuarantine(selections []quarantineSelection) (int, error) {
 	id, err := s.db.StartRun("quarantine")
 	if err != nil {
 		return 0, err
 	}
-	s.current = domain.ScanRun{ID: id, Source: "quarantine", Status: "running", StartedAt: time.Now().UTC().Format(time.RFC3339), TotalFiles: len(selected)}
+	s.current = domain.ScanRun{ID: id, Source: "quarantine", Status: "running", StartedAt: time.Now().UTC().Format(time.RFC3339), TotalFiles: len(selections)}
 	s.running = true
-	go s.quarantineFiles(hash, keeper, append([]string(nil), selected...))
+	go s.quarantineFiles(selections)
 	return id, nil
 }
 
-func (s *Scanner) quarantineFiles(hash, keeper string, selected []string) {
+func (s *Scanner) quarantineFiles(selections []quarantineSelection) {
 	run := s.Status()
-	keeperHash, err := hashFile(keeper)
-	if err != nil || keeperHash != hash {
-		run.Status = "failed"
-		run.Error = "keeper changed; scan duplicates again"
-		run.FinishedAt = time.Now().UTC().Format(time.RFC3339)
-		s.finish(run)
-		return
-	}
 	if err := os.MkdirAll(s.config.QuarantineDir, 0700); err != nil {
 		run.Status = "failed"
 		run.Error = err.Error()
@@ -267,8 +294,8 @@ func (s *Scanner) quarantineFiles(hash, keeper string, selected []string) {
 		s.finish(run)
 		return
 	}
-	for _, path := range selected {
-		if err := s.quarantineOne(hash, keeper, path); err != nil {
+	for _, selection := range selections {
+		if err := s.quarantineOne(selection.hash, selection.keeper, selection.path); err != nil {
 			run.Error = err.Error()
 			run.Status = "stopped_on_error"
 			run.ProcessedFiles++

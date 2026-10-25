@@ -1,4 +1,3 @@
-// File system helpers for auto-rename
 package infrastructure
 
 import (
@@ -32,7 +31,6 @@ func GetFileInfo(path string) (int64, string, string, error) {
 	return info.Size(), info.Mode().String(), info.ModTime().Format("2006-01-02 15:04:05"), nil
 }
 
-// DetectMediaType determines if a file is an image or video
 func DetectMediaType(filename string) (isImage, isVideo bool, mimeType string) {
 	ext := strings.ToLower(filepath.Ext(filename))
 
@@ -45,7 +43,6 @@ func DetectMediaType(filename string) (isImage, isVideo bool, mimeType string) {
 	return false, false, ""
 }
 
-// ListDirectory lists files and directories in a given path
 func ListDirectory(basePath, currentPath string) ([]domain.FileEntry, error) {
 	absBasePath, err := filepath.EvalSymlinks(basePath)
 	if err != nil {
@@ -100,7 +97,6 @@ func ListDirectory(basePath, currentPath string) ([]domain.FileEntry, error) {
 		})
 	}
 
-	// Sort: directories first, then alphabetically
 	sort.Slice(fileEntries, func(i, j int) bool {
 		if fileEntries[i].IsDir != fileEntries[j].IsDir {
 			return fileEntries[i].IsDir
@@ -127,7 +123,6 @@ func ResolveWithin(basePath, relativePath string) (string, error) {
 	return target, nil
 }
 
-// GetBreadcrumb generates breadcrumb items for navigation
 func GetBreadcrumb(currentPath string) []domain.BreadcrumbItem {
 	var breadcrumb []domain.BreadcrumbItem
 

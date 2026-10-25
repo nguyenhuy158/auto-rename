@@ -138,6 +138,25 @@ func (ws *WebServer) handleDuplicateQuarantine(w http.ResponseWriter, r *http.Re
 	writeJSON(w, map[string]any{"run_id": id})
 }
 
+func (ws *WebServer) handleDuplicateQuarantineAll(w http.ResponseWriter, r *http.Request) {
+	if !requirePOST(w, r) {
+		return
+	}
+	var input struct {
+		Confirm bool `json:"confirm"`
+	}
+	if err := readJSON(r, &input); err != nil || !input.Confirm {
+		http.Error(w, "Explicit confirmation required", http.StatusBadRequest)
+		return
+	}
+	id, err := ws.scanner.QuarantineAllDuplicates()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	writeJSON(w, map[string]any{"run_id": id})
+}
+
 func (ws *WebServer) handleQuarantine(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
