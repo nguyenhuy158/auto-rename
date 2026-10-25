@@ -28,9 +28,9 @@ The default configuration enables `dry_run` and disables cron. A manual rename s
 
 Copy `.env.runtime.example` to `.env.runtime` and set `AUTO_RENAME_API_URL` to the deployed Worker URL and `AUTO_RENAME_API_TOKEN` to the matching Worker secret. Never commit `.env.runtime` or paste its values into an issue.
 
-Edit `settings.json` for the source directory, quarantine directory, video extensions, dry-run mode, cron, and web port. The settings page displays the active values and is read-only. The NixOS Compose file mounts the Stash video directory at `/app/data`, the repo's ignored `quarantine/` directory at `/app/quarantine`, and `settings.json` read-only. Quarantine and source must be on the same filesystem.
+Edit `settings.json` for the source directory, quarantine directory, video extensions, dry-run mode, cron, and web port. The settings page displays the active values and is read-only. The v2 Compose file mounts `settings.json` read-only and keeps source and quarantine on one filesystem.
 
-Set `STASH_DATA_DIR` in an ignored `.env` file using `.env.example` as a template. The default video extensions are `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.m4v`, and `.wmv`. Directory symlinks are not traversed by scans. File browser paths are restricted to the configured source directory.
+Set `STASH_PARENT_DIR` in an ignored `.env` file using `.env.example` as a template. This directory must contain `data/` and `quarantine/` as siblings on one filesystem. Compose mounts the parent once at `/app`; separate bind mounts cause hard-link moves between source and quarantine to fail with `Cross-device link`, even when both host paths are on the same disk. The image runs from `/srv/app`, so existing D1 paths under `/app/data` remain valid. Other Stash directories are masked inside the container. The default video extensions are `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.m4v`, and `.wmv`. Directory symlinks are not traversed by scans. File browser paths are restricted to the configured source directory.
 
 ## D1 and Worker
 
@@ -51,11 +51,12 @@ go test ./...
 cd web && pnpm install --frozen-lockfile && pnpm build && cd ..
 make build
 docker compose up -d
+bash scripts/e2e.sh --docker
 ```
 
 The React UI uses the published `ui-kit` design tokens and project-owned components. [openapi.yaml](openapi.yaml) is the browser API contract. `pnpm build` generates `web/src/generated/api.d.ts` from the contract, checks TypeScript, and builds the UI. The running service serves the contract at `/openapi.yaml`. Update the spec when changing Go response or request JSON and regenerate the types. `make build` builds both the UI and Go server in a local Docker image; it does not push to a registry. GitHub Actions checks Go, the frontend contract and build, and the Docker image. Browser E2E belongs to the next milestone.
 
-For a local D1 test, apply the migrations with `wrangler d1 migrations apply db --local`, start `wrangler dev` with a temporary `API_TOKEN`, and run the Go app against that local Worker with sample files outside the Stash directory.
+`scripts/e2e.sh` creates disposable sample files and a local D1 database, runs the Worker and Docker image, then verifies rename, duplicate detection, quarantine, restore, and startup reconciliation after simulated interrupted moves. It never mounts Stash. The script requires Docker, Go, Node, Python 3, curl, OpenSSL, and `npx`; omit `--docker` to run the Go process directly. The VM transfer still requires a separate live disconnection check against sample files on NixOS.
 
 ## Safety and recovery
 
