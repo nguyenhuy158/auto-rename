@@ -1,5 +1,5 @@
 [Unit]
-Description=NixOS Stash files over Tailscale
+Description=Mini Stash files over Tailscale
 Wants=network-online.target tailscaled.service
 After=network-online.target tailscaled.service
 

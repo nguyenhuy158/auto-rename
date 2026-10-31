@@ -1,6 +1,6 @@
 # Auto Rename
 
-Auto Rename scans a configured video folder, gives unrenamed files UUID names, finds files with identical content, and keeps an operation history in Cloudflare D1. The service runs in Docker on Pipi and accesses files on NixOS through a Tailscale restricted NFS mount.
+Auto Rename scans a configured video folder, gives unrenamed files UUID names, finds files with identical content, and keeps an operation history in Cloudflare D1. The service runs in Docker on Pipi and accesses files on mini (the Debian home server, formerly `nixos`) through a Tailscale restricted NFS mount.
 
 ## MVP behavior
 
@@ -18,7 +18,7 @@ Ctrl+K searches pages, active settings, file names and paths, duplicate groups, 
 
 ## Storage and runtime
 
-The Go process runs on Pipi and accesses NixOS files through NFS. A small Cloudflare Worker exposes authenticated operations to the shared D1 database named `db`. All app tables, indexes, and the migration table use the `auto_rename_` prefix. The Worker token lives in a Worker secret and Pipi's ignored `.env.runtime` file; it is never sent to the browser.
+The Go process runs on Pipi and accesses mini's files through NFS. A small Cloudflare Worker exposes authenticated operations to the shared D1 database named `db`. All app tables, indexes, and the migration table use the `auto_rename_` prefix. The Worker token lives in a Worker secret and Pipi's ignored `.env.runtime` file; it is never sent to the browser.
 
 The Docker UI is bound to `127.0.0.1:8768` on Pipi. It is not a public web service. Use an SSH tunnel to view it from another computer. Publishing the GitHub repository does not publish the UI or the files.
 
@@ -56,13 +56,13 @@ bash scripts/e2e.sh --docker
 
 The React UI uses the published `ui-kit` design tokens and project-owned components. [openapi.yaml](openapi.yaml) is the browser API contract. `pnpm build` generates `web/src/generated/api.d.ts` from the contract, checks TypeScript, and builds the UI. The running service serves the contract at `/openapi.yaml`. Update the spec when changing Go response or request JSON and regenerate the types. `make build` builds both the UI and Go server in a local Docker image; it does not push to a registry. GitHub Actions checks Go, the frontend contract and build, and the Docker image. Browser E2E belongs to the next milestone.
 
-`scripts/e2e.sh` creates disposable sample files and a local D1 database, runs the Worker and Docker image, then verifies rename, duplicate detection, quarantine, restore, and startup reconciliation after simulated interrupted moves. It never mounts Stash. The script requires Docker, Go, Node, Python 3, curl, OpenSSL, and `npx`; omit `--docker` to run the Go process directly. The Pipi transfer was also checked with disposable files on the NixOS NFS share and a temporary network interruption.
+`scripts/e2e.sh` creates disposable sample files and a local D1 database, runs the Worker and Docker image, then verifies rename, duplicate detection, quarantine, restore, and startup reconciliation after simulated interrupted moves. It never mounts Stash. The script requires Docker, Go, Node, Python 3, curl, OpenSSL, and `npx`; omit `--docker` to run the Go process directly. The Pipi transfer was also checked with disposable files on the NFS share (then on NixOS, now mini) and a temporary network interruption.
 
 ## Pipi transfer
 
-The NixOS NFS export must allow only Pipi's Tailscale address. Place `data/` and `quarantine/` under the exported parent, and keep the export and mount on the same filesystem. The Pipi host uses one NFS mount at `/mnt/stash`; Compose binds that parent once at `/app`. Its systemd service requires the mount, while Docker does not independently restart the container before the mount is ready.
+Mini's NFS export must allow only Pipi's Tailscale address (`100.66.0.4`). Mini was reinstalled from NixOS to Debian, so recreate the export there (`nfs-kernel-server`, `/etc/exports`) for `/mnt/DATA1T/selfhost/dockge/stacks/stash`; Pipi mounts `mini.capybara-stairs.ts.net:<that path>`. Place `data/` and `quarantine/` under the exported parent, and keep the export and mount on the same filesystem. The Pipi host uses one NFS mount at `/mnt/stash`; Compose binds that parent once at `/app`. Its systemd service requires the mount, while Docker does not independently restart the container before the mount is ready.
 
-On Pipi, check out this repository at `/opt/repo/auto-rename`, set `STASH_NFS_EXPORT` and the other non-secret mount values in an ignored `.env`, copy `.env.runtime` securely from the existing VM, and keep `settings.json` at `dry_run=true`, `cron=false`. Build the image with `make build`, then run `scripts/install-pipi.sh --mount-only` to install and verify the mount. Validate file operations and a temporary connection interruption with sample files on the NFS share before starting the production app. Stop the NixOS container before running `scripts/install-pipi.sh` without arguments to enable the Pipi service. Confirm the loopback UI, D1 and filesystem agree, and that the NixOS service stays stopped. The service still needs a separate approval before writing to real Stash files.
+On Pipi, check out this repository at `/opt/repo/auto-rename`, set `STASH_NFS_EXPORT` and the other non-secret mount values in an ignored `.env`, copy `.env.runtime` securely from the existing VM, and keep `settings.json` at `dry_run=true`, `cron=false`. Build the image with `make build`, then run `scripts/install-pipi.sh --mount-only` to install and verify the mount. Validate file operations and a temporary connection interruption with sample files on the NFS share before starting the production app. Stop any auto-rename container on mini before running `scripts/install-pipi.sh` without arguments to enable the Pipi service. Confirm the loopback UI, D1 and filesystem agree, and that the mini service stays stopped. The service still needs a separate approval before writing to real Stash files.
 
 ## Safety and recovery
 
